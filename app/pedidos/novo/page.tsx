@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Header } from "@/components/header"
-import { Navigation } from "@/components/navigation"
 import { OrderFlowSteps } from "@/components/order-flow-steps"
 
 export default async function NewOrderPage() {
@@ -32,12 +31,7 @@ export default async function NewOrderPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header user={user} />
-      <Navigation />
       <main className="container py-6">
-        <div className="mb-6">
-          <h2 className="text-3xl font-bold tracking-tight">Novo Pedido</h2>
-          <p className="text-muted-foreground">Fluxo passo a passo para criar um novo pedido</p>
-        </div>
         <OrderFlowSteps menuItems={menuItems || []} userId={user.id} />
       </main>
     </div>

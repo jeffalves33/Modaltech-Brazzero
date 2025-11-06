@@ -211,7 +211,7 @@ export function OrderPrintDialog({ order, open, onOpenChange }: OrderPrintDialog
           </div>
         </div>
 
-        <Button onClick={handlePrint} className="w-full bg-orange-600 hover:bg-orange-700">
+        <Button onClick={handlePrint} className="w-full">
           <Printer className="mr-2 h-4 w-4" />
           Imprimir
         </Button>

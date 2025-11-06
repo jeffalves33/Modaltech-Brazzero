@@ -43,7 +43,7 @@ export function Navigation() {
   ]
 
   return (
-    <nav className="border-b bg-muted/40">
+    <nav className="">
       <div className="container flex gap-2 overflow-x-auto py-2">
         {links.map((link) => {
           const Icon = link.icon
@@ -55,7 +55,8 @@ export function Navigation() {
               asChild
               variant={isActive ? "default" : "ghost"}
               size="sm"
-              className={cn("flex-shrink-0", isActive && "bg-orange-600 hover:bg-orange-700")}
+              className={cn("flex-shrink-0", !isActive ? 'border border-black' : '')} // cor da aba selecionada
+              //className={cn("flex-shrink-0")}
             >
               <Link href={link.href}>
                 <Icon className="mr-2 h-4 w-4" />

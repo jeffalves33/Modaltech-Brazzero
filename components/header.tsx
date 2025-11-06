@@ -22,6 +22,9 @@ import {
   AlertDialogDescription,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Navigation } from "@/components/navigation"
+
+import Image from "next/image"
 
 interface HeaderProps {
   user: User
@@ -49,12 +52,21 @@ export function Header({ user }: HeaderProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-50 w-full border-b backdrop-blur bg-white mb-6">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">🍔</span>
-            <h1 className="text-xl font-bold text-orange-600">Hamburgueria</h1>
+            <div className="flex items-center gap-2">
+              <Image
+                src="/logo.svg"
+                alt="Logo da Hamburgueria"
+                width={150}
+                height={150}
+                priority
+              />
+            </div>
           </div>
+
+          <Navigation />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -90,7 +102,7 @@ export function Header({ user }: HeaderProps) {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction asChild>
               <Button
-                className="bg-orange-600 hover:bg-orange-700"
+                className=""
                 onClick={() => {
                   setShowLogoutWarning(false)
                   router.push("/caixa")

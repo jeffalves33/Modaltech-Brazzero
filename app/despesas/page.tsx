@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Header } from "@/components/header"
-import { Navigation } from "@/components/navigation"
 import { ExpensesManagement } from "@/components/expenses-management"
 
 export default async function ExpensesPage() {
@@ -43,12 +42,7 @@ export default async function ExpensesPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header user={user} />
-      <Navigation />
       <main className="container py-6">
-        <div className="mb-6">
-          <h2 className="text-3xl font-bold tracking-tight">Despesas do Expediente</h2>
-          <p className="text-muted-foreground">Registre as despesas do caixa atual</p>
-        </div>
         <ExpensesManagement activeSession={activeSession} initialExpenses={expenses || []} userId={user.id} />
       </main>
     </div>

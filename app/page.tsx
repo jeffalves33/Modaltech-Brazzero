@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Header } from "@/components/header"
-import { Navigation } from "@/components/navigation"
 import { OrdersKanban } from "@/components/orders-kanban"
 
 export default async function DashboardPage() {
@@ -24,12 +23,7 @@ export default async function DashboardPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header user={user} />
-      <Navigation />
-      <main className="container py-6">
-        <div className="mb-6">
-          <h2 className="text-3xl font-bold tracking-tight">Dashboard de Pedidos</h2>
-          <p className="text-muted-foreground">Gerencie os pedidos em tempo real</p>
-        </div>
+      <main className="container py-2">
         <OrdersKanban />
       </main>
     </div>

@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Header } from "@/components/header"
-import { Navigation } from "@/components/navigation"
 import { MenuManagement } from "@/components/menu-management"
 
 export default async function MenuPage() {
@@ -26,12 +25,7 @@ export default async function MenuPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header user={user} />
-      <Navigation />
       <main className="container py-6">
-        <div className="mb-6">
-          <h2 className="text-3xl font-bold tracking-tight">Gerenciar Cardápio</h2>
-          <p className="text-muted-foreground">Adicione, edite ou remova itens do cardápio</p>
-        </div>
         <MenuManagement initialItems={menuItems || []} />
       </main>
     </div>

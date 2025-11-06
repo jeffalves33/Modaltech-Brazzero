@@ -208,7 +208,7 @@ export function NewOrderForm({ menuItems, userId }: NewOrderFormProps) {
                           <div className="flex-1">
                             <h4 className="font-medium">{item.name}</h4>
                             {item.description && <p className="text-sm text-muted-foreground">{item.description}</p>}
-                            <p className="text-sm font-semibold text-orange-600 mt-1">{formatCurrency(item.price)}</p>
+                            <p className="text-sm font-semibold mt-1">{formatCurrency(item.price)}</p>
                           </div>
                           <Button type="button" size="sm" onClick={() => addToCart(item)}>
                             <Plus className="h-4 w-4" />
@@ -309,7 +309,7 @@ export function NewOrderForm({ menuItems, userId }: NewOrderFormProps) {
                     </div>
                     <div className="flex justify-between text-lg font-bold pt-2 border-t">
                       <span>Total:</span>
-                      <span className="text-orange-600">{formatCurrency(total)}</span>
+                      <span className="">{formatCurrency(total)}</span>
                     </div>
                   </div>
                 </>
@@ -438,7 +438,7 @@ export function NewOrderForm({ menuItems, userId }: NewOrderFormProps) {
             </CardContent>
           </Card>
 
-          <Button type="submit" className="w-full bg-orange-600 hover:bg-orange-700" disabled={isSubmitting}>
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
             {isSubmitting ? "Criando pedido..." : "Criar Pedido"}
           </Button>
         </div>

@@ -105,7 +105,7 @@ export function ExpensesManagement({ activeSession, initialExpenses, userId }: E
         <CardContent>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="w-full bg-orange-600 hover:bg-orange-700">
+              <Button className="w-full">
                 <Plus className="mr-2 h-4 w-4" />
                 Registrar Despesa
               </Button>
@@ -155,7 +155,7 @@ export function ExpensesManagement({ activeSession, initialExpenses, userId }: E
                   >
                     Cancelar
                   </Button>
-                  <Button type="submit" className="flex-1 bg-orange-600 hover:bg-orange-700">
+                  <Button type="submit" className="flex-1">
                     Registrar
                   </Button>
                 </div>

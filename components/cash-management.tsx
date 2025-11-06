@@ -176,7 +176,7 @@ export function CashManagement({ activeSession: initialActiveSession, recentSess
     <div className="space-y-6">
       {activeSession ? (
         <>
-          <Card className="border-green-500">
+          <Card className="">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
@@ -343,9 +343,9 @@ export function CashManagement({ activeSession: initialActiveSession, recentSess
                         )}
                       </p>
                     </div>
-                    <div className="p-3 border rounded-lg bg-orange-50">
+                    <div className="p-3 border rounded-lg">
                       <p className="text-sm text-muted-foreground">Saldo Esperado</p>
-                      <p className="font-bold text-lg text-orange-600">
+                      <p className="font-bold text-lg">
                         {formatCurrency(
                           activeSession.initial_amount +
                             dayTransactions.filter((t) => t.type === "order").reduce((s, t) => s + t.amount, 0) +
@@ -438,7 +438,7 @@ export function CashManagement({ activeSession: initialActiveSession, recentSess
                     )}
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-orange-600">
+                    <p className="font-semibold">
                       {formatCurrency((session.final_amount || 0) - session.initial_amount)}
                     </p>
                     <p className="text-xs text-muted-foreground">Diferença</p>

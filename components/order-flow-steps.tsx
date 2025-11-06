@@ -60,16 +60,24 @@ export function OrderFlowSteps({ menuItems, userId }: OrderFlowStepsProps) {
   const supabase = createClient()
 
   const handleSearchCustomer = async () => {
-    if (!customerSearch.trim()) return
+    if (!customerSearch.trim()) {
+      setCustomers([])
+      return
+    }
 
-    const cleaned = customerSearch.replace(/\D/g, "")
-    const { data } = await supabase
-      .from("customers")
-      .select("*")
-      .or(`name.ilike.%${customerSearch}%,phone.ilike.%${cleaned}%`)
-      .limit(10)
+    try {
+      const cleanedPhone = customerSearch.replace(/\D/g, "")
+      const { data } = await supabase
+        .from("customers")
+        .select("*")
+        .or(`name.ilike.%${customerSearch}%,phone.eq.${cleanedPhone}`)
+        .limit(10)
 
-    setCustomers(data || [])
+      setCustomers(data || [])
+    } catch (error) {
+      console.error("Error searching customers:", error)
+      setCustomers([])
+    }
   }
 
   const handleSelectCustomer = async (customer: Customer) => {
@@ -281,25 +289,23 @@ export function OrderFlowSteps({ menuItems, userId }: OrderFlowStepsProps) {
         {["customer", "items", "address", "payment"].map((step, idx) => (
           <div key={step} className="flex items-center">
             <div
-              className={`flex items-center justify-center w-10 h-10 rounded-full text-sm font-bold ${
-                step === currentStep
-                  ? "bg-orange-600 text-white"
+              className={`flex items-center justify-center w-10 h-10 rounded-full text-sm font-bold ${step === currentStep
+                  ? "bg-black text-white"
                   : ["customer", "items", "address", "payment"].indexOf(step) <
-                      ["customer", "items", "address", "payment"].indexOf(currentStep)
-                    ? "bg-green-500 text-white"
+                    ["customer", "items", "address", "payment"].indexOf(currentStep)
+                    ? "bg-gray-500 text-white"
                     : "bg-gray-200 text-gray-600"
-              }`}
+                }`}
             >
               {idx + 1}
             </div>
             {idx < 3 && (
               <div
-                className={`w-12 h-1 mx-2 ${
-                  ["customer", "items", "address", "payment"].indexOf(step) <
-                  ["customer", "items", "address", "payment"].indexOf(currentStep)
+                className={`w-12 h-1 mx-2 ${["customer", "items", "address", "payment"].indexOf(step) <
+                    ["customer", "items", "address", "payment"].indexOf(currentStep)
                     ? "bg-green-500"
                     : "bg-gray-200"
-                }`}
+                  }`}
               />
             )}
           </div>
@@ -336,7 +342,7 @@ export function OrderFlowSteps({ menuItems, userId }: OrderFlowStepsProps) {
                     key={customer.id}
                     type="button"
                     onClick={() => handleSelectCustomer(customer)}
-                    className="w-full text-left p-3 border rounded hover:bg-orange-50 transition-colors"
+                    className="w-full text-left p-3 border rounded transition-colors"
                   >
                     <p className="font-medium">{customer.name}</p>
                     <p className="text-sm text-muted-foreground">{formatPhone(customer.phone)}</p>
@@ -353,7 +359,7 @@ export function OrderFlowSteps({ menuItems, userId }: OrderFlowStepsProps) {
             )}
 
             {showAddCustomer && (
-              <Card className="border-orange-200 bg-orange-50">
+              <Card className="">
                 <CardContent className="pt-4 space-y-3">
                   <div className="space-y-2">
                     <Label htmlFor="newCustomerName">Nome</Label>
@@ -462,7 +468,7 @@ export function OrderFlowSteps({ menuItems, userId }: OrderFlowStepsProps) {
                     <Button
                       type="button"
                       onClick={handleAddCustomer}
-                      className="flex-1 bg-orange-600 hover:bg-orange-700"
+                      className="flex-1"
                     >
                       Adicionar
                     </Button>
@@ -475,7 +481,7 @@ export function OrderFlowSteps({ menuItems, userId }: OrderFlowStepsProps) {
               type="button"
               onClick={() => setCurrentStep("items")}
               disabled={!selectedCustomer}
-              className="w-full bg-orange-600 hover:bg-orange-700"
+              className="w-full"
             >
               Próximo: Selecionar Itens
               <ChevronRight className="ml-2 h-4 w-4" />
@@ -510,7 +516,7 @@ export function OrderFlowSteps({ menuItems, userId }: OrderFlowStepsProps) {
                             <div className="flex-1">
                               <h4 className="font-medium">{item.name}</h4>
                               {item.description && <p className="text-sm text-muted-foreground">{item.description}</p>}
-                              <p className="text-sm font-semibold text-orange-600 mt-1">{formatCurrency(item.price)}</p>
+                              <p className="text-sm font-semibold mt-1">{formatCurrency(item.price)}</p>
                             </div>
                             <Button type="button" size="sm" onClick={() => addToCart(item)}>
                               <Plus className="h-4 w-4" />
@@ -596,7 +602,7 @@ export function OrderFlowSteps({ menuItems, userId }: OrderFlowStepsProps) {
                       </div>
                       <div className="flex justify-between text-lg font-bold">
                         <span>Total:</span>
-                        <span className="text-orange-600">{formatCurrency(total)}</span>
+                        <span className="">{formatCurrency(total)}</span>
                       </div>
                     </div>
                   </>
@@ -613,7 +619,7 @@ export function OrderFlowSteps({ menuItems, userId }: OrderFlowStepsProps) {
                 type="button"
                 onClick={() => setCurrentStep("address")}
                 disabled={cart.length === 0}
-                className="flex-1 bg-orange-600 hover:bg-orange-700"
+                className="flex-1"
               >
                 Próximo
                 <ChevronRight className="h-4 w-4 ml-2" />
@@ -635,7 +641,7 @@ export function OrderFlowSteps({ menuItems, userId }: OrderFlowStepsProps) {
                 {customerAddresses.map((addr) => (
                   <label
                     key={addr.id}
-                    className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-orange-50"
+                    className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer"
                   >
                     <input
                       type="radio"
@@ -669,7 +675,7 @@ export function OrderFlowSteps({ menuItems, userId }: OrderFlowStepsProps) {
                 type="button"
                 onClick={() => setCurrentStep("payment")}
                 disabled={!selectedAddress}
-                className="flex-1 bg-orange-600 hover:bg-orange-700"
+                className="flex-1"
               >
                 Próximo: Pagamento
                 <ChevronRight className="h-4 w-4 ml-2" />
@@ -716,7 +722,7 @@ export function OrderFlowSteps({ menuItems, userId }: OrderFlowStepsProps) {
                   </div>
                   <div className="flex justify-between text-lg font-bold pt-2 border-t">
                     <span>Total:</span>
-                    <span className="text-orange-600">{formatCurrency(total)}</span>
+                    <span className="">{formatCurrency(total)}</span>
                   </div>
                 </div>
               </CardContent>
@@ -760,7 +766,7 @@ export function OrderFlowSteps({ menuItems, userId }: OrderFlowStepsProps) {
                   <ChevronLeft className="h-4 w-4 mr-2" />
                   Voltar
                 </Button>
-                <Button type="submit" disabled={isSubmitting} className="flex-1 bg-orange-600 hover:bg-orange-700">
+                <Button type="submit" disabled={isSubmitting} className="flex-1">
                   {isSubmitting ? "Criando..." : "Finalizar Pedido"}
                 </Button>
               </div>

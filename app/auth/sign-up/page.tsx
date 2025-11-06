@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 
@@ -65,10 +66,19 @@ export default function SignUpPage() {
       <div className="w-full max-w-sm">
         <div className="flex flex-col gap-6">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-2xl">Cadastre-se</CardTitle>
+            <CardHeader className="flex flex-col items-center gap-2 text-center">
+              <div className="flex items-center gap-2">
+                <Image
+                  src="/logo.svg"
+                  alt="Logo da Hamburgueria"
+                  width={150}
+                  height={150}
+                  priority
+                />
+              </div>
             </CardHeader>
             <CardContent>
+              <CardTitle className="mb-3">Fazer Login</CardTitle>
               <form onSubmit={handleSignUp}>
                 <div className="flex flex-col gap-6">
                   <div className="grid gap-2">

@@ -51,16 +51,16 @@ export default function LoginPage() {
             <CardHeader className="flex flex-col items-center gap-2 text-center">
               <div className="flex items-center gap-2">
                 <Image
-                  src="/placeholder-logo.png"
+                  src="/logo.svg"
                   alt="Logo da Hamburgueria"
                   width={150}
                   height={150}
                   priority
                 />
               </div>
-              <CardTitle className="text-2xl">Fazer Login</CardTitle>
             </CardHeader>
             <CardContent>
+              <CardTitle className="mb-3">Fazer Login</CardTitle>
               <form onSubmit={handleLogin}>
                 <div className="flex flex-col gap-6">
                   <div className="grid gap-2">

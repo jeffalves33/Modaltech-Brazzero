@@ -156,7 +156,7 @@ export function OrdersKanban() {
             {nextStatus[order.status] && (
               <Button
                 size="sm"
-                className="flex-1 bg-orange-600 hover:bg-orange-700"
+                className="flex-1"
                 onClick={() => updateOrderStatus(order.id, nextStatus[order.status]!)}
               >
                 {statusConfig[nextStatus[order.status]!].label}
