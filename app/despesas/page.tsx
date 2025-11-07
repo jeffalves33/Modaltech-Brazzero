@@ -42,7 +42,7 @@ export default async function ExpensesPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header user={user} />
-      <main className="container py-6">
+      <main className="container mx-auto">
         <ExpensesManagement activeSession={activeSession} initialExpenses={expenses || []} userId={user.id} />
       </main>
     </div>

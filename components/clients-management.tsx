@@ -25,6 +25,7 @@ import {
     deleteCustomer,
     addCustomerAddress,
     deleteCustomerAddress,
+    getCustomerAddresses
 } from "@/app/actions/clients"
 
 interface ClientsManagementProps {
@@ -36,6 +37,7 @@ export function ClientsManagement({ initialCustomers, activeSession }: ClientsMa
     const [customers, setCustomers] = useState<Customer[]>(initialCustomers)
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
     const [addresses, setAddresses] = useState<CustomerAddress[]>([])
+    console.log("🚀 ~ ClientsManagement ~ addresses: ", addresses)
     const [customerStats, setCustomerStats] = useState<{ orders: number; total: number }>({ orders: 0, total: 0 })
     const [searchTerm, setSearchTerm] = useState("")
     const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
@@ -63,7 +65,12 @@ export function ClientsManagement({ initialCustomers, activeSession }: ClientsMa
         setLoading(true)
 
         try {
-            // In real app, would fetch from server. For now, using mock data
+            const addressesFromDb = await getCustomerAddresses(customer.id)
+            console.log("🚀 ~ handleLoadCustomerDetails ~ addressesFromDb: ", addressesFromDb)
+            setAddresses(addressesFromDb)
+            setCustomerStats({ orders: 0, total: 0 })
+        } catch (error) {
+            console.error("Erro ao carregar detalhes do cliente:", error)
             setAddresses([])
             setCustomerStats({ orders: 0, total: 0 })
         } finally {
@@ -118,15 +125,6 @@ export function ClientsManagement({ initialCustomers, activeSession }: ClientsMa
         setLoading(true)
         try {
             await addCustomerAddress(selectedCustomer.id, newAddress)
-            setNewAddress({
-                street: "",
-                number: "",
-                complement: "",
-                neighborhood: "",
-                city: "",
-                state: "",
-                reference: "",
-            })
             setShowAddAddress(false)
             // Reload customer details
             await handleLoadCustomerDetails(selectedCustomer)
@@ -245,8 +243,8 @@ export function ClientsManagement({ initialCustomers, activeSession }: ClientsMa
                                     key={customer.id}
                                     onClick={() => handleLoadCustomerDetails(customer)}
                                     className={`w-full text-left p-2.5 border rounded-md transition-all text-sm ${selectedCustomer?.id === customer.id
-                                            ? "border-black bg-gray-50"
-                                            : "border-transparent hover:bg-muted"
+                                        ? "border-black bg-gray-50"
+                                        : "border-transparent hover:bg-muted"
                                         }`}
                                 >
                                     <p className="font-medium truncate">{customer.name}</p>
@@ -362,6 +360,7 @@ export function ClientsManagement({ initialCustomers, activeSession }: ClientsMa
                                     <Button
                                         size="sm"
                                         variant="ghost"
+                                        className="text-destructive"
                                         onClick={() => setDeletingCustomerId(selectedCustomer.id)}
                                         disabled={loading}
                                     >
@@ -427,7 +426,7 @@ export function ClientsManagement({ initialCustomers, activeSession }: ClientsMa
                                                             {addr.neighborhood}, {addr.city} - {addr.state}
                                                         </p>
                                                         {addr.reference && (
-                                                            <p className="text-xs text-muted-foreground mt-1">📍 {addr.reference}</p>
+                                                            <p className="text-xs text-muted-foreground mt-1"> REF.: {addr.reference}</p>
                                                         )}
                                                         {addr.is_default && <p className="text-xs text-green-600 font-medium mt-1">Padrão</p>}
                                                     </div>
@@ -454,7 +453,7 @@ export function ClientsManagement({ initialCustomers, activeSession }: ClientsMa
                                                         size="sm"
                                                         variant="ghost"
                                                         onClick={() => setDeletingAddressId(addr.id)}
-                                                        className="flex-shrink-0"
+                                                        className="flex-shrink-0 text-destructive"
                                                         disabled={loading}
                                                     >
                                                         <Trash2 className="h-4 w-4" />

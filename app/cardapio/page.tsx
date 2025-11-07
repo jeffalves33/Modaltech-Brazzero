@@ -25,7 +25,7 @@ export default async function MenuPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header user={user} />
-      <main className="container py-6">
+      <main className="container mx-auto">
         <MenuManagement initialItems={menuItems || []} />
       </main>
     </div>

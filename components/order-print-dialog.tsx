@@ -15,6 +15,7 @@ interface OrderPrintDialogProps {
 
 export function OrderPrintDialog({ order, open, onOpenChange }: OrderPrintDialogProps) {
   const printRef = useRef<HTMLDivElement>(null)
+  const formattedOrderNumber = String(order.order_number ?? "").padStart(3, "0")
 
   const handlePrint = () => {
     const printContent = printRef.current
@@ -27,7 +28,7 @@ export function OrderPrintDialog({ order, open, onOpenChange }: OrderPrintDialog
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Pedido #${order.order_number}</title>
+          <title>Pedido n°${formattedOrderNumber}</title>
           <style>
             @media print {
               @page {
@@ -39,63 +40,152 @@ export function OrderPrintDialog({ order, open, onOpenChange }: OrderPrintDialog
                 padding: 0;
               }
             }
+
+            * {
+              box-sizing: border-box;
+            }
+
             body {
-              font-family: 'Courier New', monospace;
-              font-size: 12px;
-              line-height: 1.4;
-              padding: 10px;
+              margin: 0;
+              padding: 0;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+              background: #f5eee3;
+            }
+
+            .receipt {
               max-width: 80mm;
               margin: 0 auto;
+              padding: 16px 16px 18px;
+              background: #f5eee3;
+              font-size: 11px;
+              color: #1e1e1e;
             }
-            .header {
+
+            .receipt-logo {
               text-align: center;
-              border-bottom: 2px dashed #000;
-              padding-bottom: 10px;
               margin-bottom: 10px;
             }
-            .header h1 {
-              margin: 0;
-              font-size: 18px;
-              font-weight: bold;
+
+            .receipt-logo img {
+              max-width: 120px;
+              height: auto;
             }
-            .header p {
-              margin: 2px 0;
+
+            .order-meta {
+              margin-bottom: 8px;
+            }
+
+            .order-number {
+              font-weight: 700;
+              font-size: 12px;
+            }
+
+            .order-datetime {
+              margin-top: 2px;
               font-size: 11px;
             }
+
             .section {
+              margin-top: 8px;
+            }
+
+            .label {
+              font-weight: 600;
+            }
+
+            .strong {
+              font-weight: 700;
+            }
+
+            .muted {
+              font-size: 10px;
+              color: #555;
+            }
+
+            .divider {
+              border: 0;
+              border-top: 1px solid #d3c5ad;
               margin: 10px 0;
-              padding: 8px 0;
-              border-bottom: 1px dashed #000;
             }
-            .section:last-child {
-              border-bottom: 2px dashed #000;
+
+            .dashed-divider {
+              border: 0;
+              border-top: 1px dashed #c3b59a;
+              margin: 8px 0;
             }
-            .section-title {
-              font-weight: bold;
-              margin-bottom: 5px;
-              text-transform: uppercase;
+
+            .items-section {
+              margin-top: 4px;
             }
-            .item {
+
+            .item-row {
+              margin: 4px 0;
+            }
+
+            .item-header {
+              display: flex;
+              align-items: baseline;
+              justify-content: space-between;
+              gap: 4px;
+            }
+
+            .item-main {
+              display: flex;
+              gap: 4px;
+              flex: 1;
+              min-width: 0;
+            }
+
+            .item-qty {
+              font-weight: 600;
+            }
+
+            .item-name {
+              font-weight: 500;
+              white-space: nowrap;
+              text-overflow: ellipsis;
+              overflow: hidden;
+            }
+
+            .item-price {
+              font-weight: 600;
+              white-space: nowrap;
+              margin-left: 8px;
+            }
+
+            .item-note {
+              font-size: 10px;
+              margin-left: 20px;
+              margin-top: 2px;
+            }
+
+            .totals {
+              margin-top: 6px;
+            }
+
+            .line {
               display: flex;
               justify-content: space-between;
-              margin: 3px 0;
+              margin: 2px 0;
             }
-            .item-name {
-              flex: 1;
-            }
-            .item-price {
+
+            .line span:last-child {
               text-align: right;
-              white-space: nowrap;
-              margin-left: 10px;
+              min-width: 60px;
             }
-            .total {
-              font-size: 14px;
-              font-weight: bold;
-              margin-top: 5px;
+
+            .total-line {
+              margin-top: 4px;
+              font-weight: 700;
             }
+
+            .payment-section {
+              margin-top: 10px;
+            }
+
             .footer {
               text-align: center;
-              margin-top: 10px;
+              margin-top: 14px;
               font-size: 11px;
             }
           </style>
@@ -122,6 +212,8 @@ export function OrderPrintDialog({ order, open, onOpenChange }: OrderPrintDialog
     cartao_credito: "Cartão de Crédito",
   }
 
+  const paymentLabel = paymentMethodLabels[order.payment_method] ?? order.payment_method
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -129,85 +221,111 @@ export function OrderPrintDialog({ order, open, onOpenChange }: OrderPrintDialog
           <DialogTitle>Imprimir Pedido</DialogTitle>
         </DialogHeader>
 
-        <div ref={printRef} className="font-mono text-sm">
-          <div className="header">
-            <h1>HAMBURGUERIA</h1>
-            <p>Sistema de Pedidos</p>
-            <p>{formatDateTime(order.created_at)}</p>
-          </div>
-
-          <div className="section">
-            <div className="section-title">Pedido #{order.order_number}</div>
-          </div>
-
-          <div className="section">
-            <div className="section-title">Cliente</div>
-            <div>{order.customer?.name}</div>
-            <div>{formatPhone(order.customer?.phone || "")}</div>
-          </div>
-
-          <div className="section">
-            <div className="section-title">Endereço de Entrega</div>
-            <div>
-              {order.address?.street}, {order.address?.number}
+        {/* Conteúdo que vai para impressão */}
+        <div ref={printRef}>
+          <div className="receipt">
+            {/* LOGO */}
+            <div className="receipt-logo">
+              <img src="/logo.svg" alt="Brazzero" />
             </div>
-            {order.address?.complement && <div>{order.address.complement}</div>}
-            <div>{order.address?.neighborhood}</div>
-            <div>
-              {order.address?.city} - {order.address?.state}
+
+            {/* META DO PEDIDO */}
+            <div className="order-meta">
+              <p className="order-number">Pedido n°{formattedOrderNumber}</p>
+              <p className="order-datetime">Realizado em: {formatDateTime(order.created_at)}</p>
             </div>
-            {order.address?.reference && (
-              <div>
-                <strong>Ref:</strong> {order.address.reference}
+
+            {/* CLIENTE */}
+            <div className="section">
+              <p>
+                <span className="label">Cliente: </span>
+                <span className="strong">{order.customer?.name}</span>
+              </p>
+              {order.customer?.phone && (
+                <p className="muted">{formatPhone(order.customer.phone)}</p>
+              )}
+            </div>
+
+            {/* ENDEREÇO */}
+            {order.address && (
+              <div className="section">
+                <p className="label">Endereço</p>
+                <p className="strong">
+                  {order.address.street}, {order.address.number}
+                  {order.address.neighborhood ? `, ${order.address.neighborhood}` : ""}
+                </p>
+                <p>
+                  {order.address.city} - {order.address.state}
+                </p>
+                {order.address.reference && (
+                  <p className="muted">( {order.address.reference} )</p>
+                )}
               </div>
             )}
-          </div>
 
-          <div className="section">
-            <div className="section-title">Itens do Pedido</div>
-            {order.items?.map((item) => (
-              <div key={item.id}>
-                <div className="item">
-                  <div className="item-name">
-                    {item.quantity}x {item.menu_item?.name}
+            <hr className="divider" />
+
+            {/* ITENS DO PEDIDO */}
+            <div className="items-section">
+              {order.items?.map((item) => (
+                <div key={item.id} className="item-row">
+                  <div className="item-header">
+                    <div className="item-main">
+                      <span className="item-qty">
+                        {String(item.quantity).padStart(2, "0")}
+                      </span>
+                      <span className="item-name">{item.menu_item?.name}</span>
+                    </div>
+                    <span className="item-price">{formatCurrency(item.subtotal)}</span>
                   </div>
-                  <div className="item-price">{formatCurrency(item.subtotal)}</div>
+
+                  {item.notes && (
+                    <p className="item-note">Obs: {item.notes}</p>
+                  )}
+
+                  <hr className="dashed-divider" />
                 </div>
-                {item.notes && <div style={{ fontSize: "10px", marginLeft: "10px" }}>Obs: {item.notes}</div>}
+              ))}
+            </div>
+
+            {/* TOTAIS */}
+            <div className="totals">
+              <div className="line">
+                <span>Valor dos produtos</span>
+                <span>{formatCurrency(order.subtotal)}</span>
               </div>
-            ))}
-          </div>
-
-          <div className="section">
-            <div className="item">
-              <div>Subtotal:</div>
-              <div>{formatCurrency(order.subtotal)}</div>
+              <div className="line">
+                <span>Taxa de entrega</span>
+                <span>{formatCurrency(order.delivery_fee)}</span>
+              </div>
+              <div className="line total-line">
+                <span>Total</span>
+                <span>{formatCurrency(order.total)}</span>
+              </div>
             </div>
-            <div className="item">
-              <div>Taxa de entrega:</div>
-              <div>{formatCurrency(order.delivery_fee)}</div>
-            </div>
-            <div className="item total">
-              <div>TOTAL:</div>
-              <div>{formatCurrency(order.total)}</div>
-            </div>
-          </div>
 
-          <div className="section">
-            <div className="section-title">Pagamento</div>
-            <div>{paymentMethodLabels[order.payment_method]}</div>
-          </div>
-
-          {order.notes && (
-            <div className="section">
-              <div className="section-title">Observações</div>
-              <div>{order.notes}</div>
+            {/* PAGAMENTO */}
+            <div className="payment-section">
+              <p className="label">Forma de pagamento</p>
+              <div className="line">
+                <span>{paymentLabel}</span>
+                <span>{formatCurrency(order.total)}</span>
+              </div>
             </div>
-          )}
 
-          <div className="footer">
-            <p>Obrigado pela preferência!</p>
-            <p>Bom apetite!</p>
+            {/* OBSERVAÇÕES GERAIS DO PEDIDO */}
+            {order.notes && (
+              <div className="section">
+                <p className="label">Observações</p>
+                <p>{order.notes}</p>
+              </div>
+            )}
+
+            {/* RODAPÉ */}
+            <div className="footer">
+              <p>Bom apetite!</p>
+              <p>@brazzeroburger_</p>
+            </div>
           </div>
         </div>
 

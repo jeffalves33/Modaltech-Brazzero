@@ -69,3 +69,16 @@ export async function deleteCustomerAddress(id: string) {
     if (error) throw new Error(error.message)
     revalidatePath("/clientes")
 }
+
+export async function getCustomerAddresses(customerId: string) {
+    const supabase = await createClient()
+
+    const { data, error } = await supabase
+        .from("customer_addresses")
+        .select("*")
+        .eq("customer_id", customerId)
+        .order("created_at", { ascending: true })
+
+    if (error) throw error
+    return data
+}

@@ -23,7 +23,7 @@ export default async function DashboardPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header user={user} />
-      <main className="container py-2">
+      <main className="container mx-auto">
         <OrdersKanban />
       </main>
     </div>

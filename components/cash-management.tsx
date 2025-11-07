@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatCurrency, formatDateTime } from "@/lib/format"
-import { Lock, Unlock, ShoppingCart, Trash2, TrendingUp } from "lucide-react"
+import { Lock, Unlock, ShoppingCart, TrendingDown, TrendingUp } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 interface CashManagementProps {
@@ -268,7 +268,7 @@ export function CashManagement({ activeSession: initialActiveSession, recentSess
                           <div className="flex items-center gap-3 flex-1">
                             {transaction.type === "initial" && <TrendingUp className="h-5 w-5 text-blue-500" />}
                             {transaction.type === "order" && <ShoppingCart className="h-5 w-5 text-green-500" />}
-                            {transaction.type === "expense" && <Trash2 className="h-5 w-5 text-red-500" />}
+                            {transaction.type === "expense" && <TrendingDown className="h-5 w-5 text-red-500" />}
                             <div className="flex-1">
                               <p className="font-medium text-sm">{transaction.description}</p>
                               <p className="text-xs text-muted-foreground">{formatDateTime(transaction.createdAt)}</p>

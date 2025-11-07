@@ -34,11 +34,7 @@ export default async function ClientsPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header user={user} />
-      <main className="container py-6">
-        <div className="mb-6">
-          <h2 className="text-3xl font-bold tracking-tight">Gerenciar Clientes</h2>
-          <p className="text-muted-foreground">Visualize, edite e gerencie seus clientes</p>
-        </div>
+      <main className="container mx-auto">
         <ClientsManagement initialCustomers={customers || []} activeSession={activeSession} />
       </main>
     </div>

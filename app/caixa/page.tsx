@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Header } from "@/components/header"
-import { Navigation } from "@/components/navigation"
 import { CashManagement } from "@/components/cash-management"
 
 export default async function CashPage() {
@@ -42,7 +41,7 @@ export default async function CashPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header user={user} />
-      <main className="container py-6">
+      <main className="container mx-auto">
         <CashManagement activeSession={activeSession} recentSessions={recentSessions || []} userId={user.id} />
       </main>
     </div>

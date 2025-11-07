@@ -31,7 +31,7 @@ export default async function NewOrderPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header user={user} />
-      <main className="container py-6">
+      <main className="container mx-auto">
         <OrderFlowSteps menuItems={menuItems || []} userId={user.id} />
       </main>
     </div>

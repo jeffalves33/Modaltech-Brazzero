@@ -52,7 +52,7 @@ export function Header({ user }: HeaderProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full border-b backdrop-blur bg-white mb-6">
+      <header className="sticky top-0 z-50 w-full border-b backdrop-blur bg-white mb-6 px-8">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2">
