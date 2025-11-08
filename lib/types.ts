@@ -69,6 +69,22 @@ export interface MenuItem {
   updated_at: string
 }
 
+export interface MenuAddon {
+  id: string
+  name: string
+  description: string | null
+  price: number
+  is_available: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type MenuItemAddon = {
+  id: string
+  menu_item_id: string
+  menu_addon_id: string
+}
+
 export type OrderStatus = "em_producao" | "em_rota" | "entregue" | "cancelado"
 export type PaymentMethod = "dinheiro" | "pix" | "cartao_debito" | "cartao_credito"
 

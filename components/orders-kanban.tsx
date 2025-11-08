@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { formatCurrency, formatDateTime, formatPhone } from "@/lib/format"
-import { ChevronRight, Phone, MapPin, Printer } from "lucide-react"
+import { ChevronRight, Phone, MapPin, Printer, User, Trash2, PencilLine } from "lucide-react"
 import { OrderPrintDialog } from "@/components/order-print-dialog"
 
 const statusConfig: Record<OrderStatus, { label: string; color: string }> = {
@@ -64,7 +64,14 @@ export function OrdersKanban() {
         *,
         customer:customers(*),
         address:customer_addresses(*),
-        items:order_items(*, menu_item:menu_items(*))
+        items:order_items(
+          *,
+          menu_item:menu_items(*),
+          addons:order_item_addons(
+            quantity,
+            menu_addon:menu_addons(*)
+          )
+        )
       `)
       .in("status", ["em_producao", "em_rota", "entregue"])
       .order("created_at", { ascending: false })
@@ -88,6 +95,24 @@ export function OrdersKanban() {
     loadOrders(activeCashSessionId)
   }
 
+  const deleteOrder = async (orderId: string) => {
+    if (!window.confirm("Tem certeza que deseja excluir este pedido?")) {
+      return
+    }
+
+    const supabase = createClient()
+    const { error } = await supabase.from("orders").delete().eq("id", orderId)
+
+    if (error) {
+      console.error("Erro ao excluir pedido:", error)
+      alert("Erro ao excluir pedido.")
+      return
+    }
+
+    // remove da lista local sem precisar recarregar tudo
+    setOrders((prev) => prev.filter((order) => order.id !== orderId))
+  }
+
   const getOrdersByStatus = (status: OrderStatus) => {
     return orders.filter((order) => order.status === status)
   }
@@ -104,9 +129,13 @@ export function OrdersKanban() {
       <Card key={order.id} className="mb-3">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
-            <div>
-              <CardTitle className="text-lg">Pedido #{order.order_number}</CardTitle>
-              <p className="text-sm text-muted-foreground">{formatDateTime(order.created_at)}</p>
+            <div className="space-y-1">
+              <div className="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-slate-50">
+                Nº {String(order.order_number).padStart(2, "0")}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {formatDateTime(order.created_at)}
+              </p>
             </div>
             <Badge variant="outline" className="font-mono">
               {formatCurrency(order.total)}
@@ -116,8 +145,11 @@ export function OrdersKanban() {
         <CardContent className="space-y-3">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-sm">
-              <Phone className="h-4 w-4 text-muted-foreground" />
+              <User className="h-4 w-4 text-muted-foreground" />
               <span className="font-medium">{order.customer?.name}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <Phone className="h-4 w-4 text-muted-foreground" />
               <span className="text-muted-foreground">{formatPhone(order.customer?.phone || "")}</span>
             </div>
             <div className="flex items-start gap-2 text-sm text-muted-foreground">
@@ -132,15 +164,39 @@ export function OrdersKanban() {
           </div>
 
           <div className="space-y-1">
-            {order.items?.map((item) => (
-              <div key={item.id} className="flex justify-between text-sm">
-                <span>
-                  {item.quantity}x {item.menu_item?.name}
-                </span>
-                <span className="text-muted-foreground">{formatCurrency(item.subtotal)}</span>
-              </div>
-            ))}
+            {order.items?.map((item: any) => {
+              const addons = item.addons || []
+              const addonsLabel =
+                addons.length > 0
+                  ? addons
+                    .map((a: any) =>
+                      a.quantity > 1
+                        ? `${a.menu_addon?.name} x${a.quantity}`
+                        : a.menu_addon?.name,
+                    )
+                    .join(", ")
+                  : ""
+
+              return (
+                <div key={item.id} className="space-y-0.5 text-sm">
+                  <div className="flex justify-between">
+                    <span>
+                      {item.quantity}x {item.menu_item?.name}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {formatCurrency(item.subtotal)}
+                    </span>
+                  </div>
+                  {addonsLabel && (
+                    <p className="text-xs text-muted-foreground ml-4">
+                      + {addonsLabel}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
           </div>
+
 
           {order.notes && (
             <div className="text-sm">
@@ -149,10 +205,37 @@ export function OrdersKanban() {
           )}
 
           <div className="flex gap-2 pt-2">
-            <Button variant="outline" size="sm" className="flex-1 bg-transparent" onClick={() => setPrintOrder(order)}>
-              <Printer className="mr-2 h-4 w-4" />
-              Imprimir
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 text-destructive"
+              onClick={() => deleteOrder(order.id)}
+              title="Excluir pedido"
+            >
+              <Trash2 className="h-4 w-4" />
             </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-9 w-9 bg-transparent"
+              onClick={() => setPrintOrder(order)}
+            >
+              <PencilLine className="h-4 w-4" />
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-9 w-9 bg-transparent"
+              onClick={() => setPrintOrder(order)}
+            >
+              <Printer className="h-4 w-4" />
+            </Button>
+
             {nextStatus[order.status] && (
               <Button
                 size="sm"

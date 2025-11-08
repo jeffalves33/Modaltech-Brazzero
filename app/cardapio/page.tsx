@@ -21,12 +21,16 @@ export default async function MenuPage() {
   }
 
   const { data: menuItems } = await supabase.from("menu_items").select("*").order("category").order("name")
+  const { data: menuAddons } = await supabase.from("menu_addons").select("*").order("name")
 
   return (
     <div className="min-h-screen bg-background">
       <Header user={user} />
       <main className="container mx-auto">
-        <MenuManagement initialItems={menuItems || []} />
+        <MenuManagement
+          initialItems={menuItems || []}
+          initialAddons={menuAddons || []}
+        />
       </main>
     </div>
   )

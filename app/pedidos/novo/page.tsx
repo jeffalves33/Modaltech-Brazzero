@@ -28,11 +28,27 @@ export default async function NewOrderPage() {
     .order("category", { ascending: true })
     .order("name", { ascending: true })
 
+  // Load available addons
+  const { data: menuAddons } = await supabase
+    .from("menu_addons")
+    .select("*")
+    .eq("is_available", true)
+    .order("name", { ascending: true })
+
+  // Load which addons each item allows
+  const { data: menuItemAddons } = await supabase
+    .from("menu_item_addons")
+    .select("menu_item_id, menu_addon_id")
+
   return (
     <div className="min-h-screen bg-background">
       <Header user={user} />
       <main className="container mx-auto">
-        <OrderFlowSteps menuItems={menuItems || []} userId={user.id} />
+        <OrderFlowSteps
+          menuItems={menuItems || []}
+          menuAddons={menuAddons || []}
+          menuItemAddons={menuItemAddons || []}
+          userId={user.id} />
       </main>
     </div>
   )

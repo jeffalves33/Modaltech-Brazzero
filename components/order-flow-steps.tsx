@@ -3,7 +3,19 @@
 import type React from "react"
 import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
-import type { MenuItem, Customer, CustomerAddress } from "@/lib/types"
+import type {
+  MenuItem,
+  Customer,
+  CustomerAddress,
+  MenuAddon,
+  MenuItemAddon,
+} from "@/lib/types"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,18 +30,33 @@ import { useRouter } from "next/navigation"
 
 interface OrderFlowStepsProps {
   menuItems: MenuItem[]
+  menuAddons: MenuAddon[]
+  menuItemAddons: MenuItemAddon[]
   userId: string
 }
 
 type OrderStep = "customer" | "items" | "address" | "payment"
 
+interface CartAddon {
+  addon: MenuAddon
+  quantity: number
+}
+
 interface CartItem {
+  id: string
   menu_item: MenuItem
   quantity: number
   notes: string
+  addons: CartAddon[]
 }
 
-export function OrderFlowSteps({ menuItems, userId }: OrderFlowStepsProps) {
+
+export function OrderFlowSteps({
+  menuItems,
+  menuAddons,
+  menuItemAddons,
+  userId,
+}: OrderFlowStepsProps) {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState<OrderStep>("customer")
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -50,6 +77,9 @@ export function OrderFlowSteps({ menuItems, userId }: OrderFlowStepsProps) {
     reference: "",
   })
   const [cart, setCart] = useState<CartItem[]>([])
+  const [addonModalItem, setAddonModalItem] = useState<MenuItem | null>(null)
+  const [addonSelections, setAddonSelections] = useState<CartAddon[]>([])
+  const [isAddonModalOpen, setIsAddonModalOpen] = useState(false)
   const [selectedAddress, setSelectedAddress] = useState<CustomerAddress | null>(null)
   const [customerAddresses, setCustomerAddresses] = useState<CustomerAddress[]>([])
   const [deliveryFee, setDeliveryFee] = useState("5.00")
@@ -174,38 +204,133 @@ export function OrderFlowSteps({ menuItems, userId }: OrderFlowStepsProps) {
   // Step 2: Items Selection
   const categories = Array.from(new Set(menuItems.map((item) => item.category)))
 
-  const addToCart = (menuItem: MenuItem) => {
-    const existingItem = cart.find((item) => item.menu_item.id === menuItem.id)
+  const areAddonsEqual = (a: CartAddon[], b: CartAddon[]) => {
+    if (a.length !== b.length) return false
+    const sortedA = [...a].sort((x, y) => x.addon.id.localeCompare(y.addon.id))
+    const sortedB = [...b].sort((x, y) => x.addon.id.localeCompare(y.addon.id))
+
+    return sortedA.every(
+      (addon, index) =>
+        addon.addon.id === sortedB[index].addon.id &&
+        addon.quantity === sortedB[index].quantity,
+    )
+  }
+
+  const addToCart = (menuItem: MenuItem, addons: CartAddon[] = []) => {
+    const normalizedAddons = addons.filter((a) => a.quantity > 0)
+
+    const existingItem = cart.find(
+      (item) =>
+        item.menu_item.id === menuItem.id &&
+        areAddonsEqual(item.addons, normalizedAddons),
+    )
+
     if (existingItem) {
-      setCart(cart.map((item) => (item.menu_item.id === menuItem.id ? { ...item, quantity: item.quantity + 1 } : item)))
+      setCart(
+        cart.map((item) =>
+          item.id === existingItem.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item,
+        ),
+      )
     } else {
-      setCart([...cart, { menu_item: menuItem, quantity: 1, notes: "" }])
+      const newItem: CartItem = {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        menu_item: menuItem,
+        quantity: 1,
+        notes: "",
+        addons: normalizedAddons,
+      }
+      setCart([...cart, newItem])
     }
   }
 
-  const updateQuantity = (menuItemId: string, delta: number) => {
-    setCart(
-      cart
+  const handleAddClick = (menuItem: MenuItem) => {
+    const allowedAddonIds = menuItemAddons
+      .filter((rel) => rel.menu_item_id === menuItem.id)
+      .map((rel) => rel.menu_addon_id)
+
+    const allowedAddons = menuAddons.filter((addon) =>
+      allowedAddonIds.includes(addon.id),
+    )
+
+    // se não tiver complementos configurados, comportamento atual
+    if (allowedAddons.length === 0) {
+      addToCart(menuItem)
+      return
+    }
+
+    // abre modal com lista de complementos
+    setAddonModalItem(menuItem)
+    setAddonSelections(
+      allowedAddons.map((addon) => ({
+        addon,
+        quantity: 0,
+      })),
+    )
+    setIsAddonModalOpen(true)
+  }
+
+  const updateAddonSelectionQuantity = (addonId: string, delta: number) => {
+    setAddonSelections((prev) =>
+      prev.map((entry) => {
+        if (entry.addon.id !== addonId) return entry
+        const newQty = entry.quantity + delta
+        return { ...entry, quantity: newQty < 0 ? 0 : newQty }
+      }),
+    )
+  }
+
+  const closeAddonModal = () => {
+    setIsAddonModalOpen(false)
+    setAddonModalItem(null)
+    setAddonSelections([])
+  }
+
+  const handleConfirmAddons = () => {
+    if (!addonModalItem) return
+    const selected = addonSelections.filter((entry) => entry.quantity > 0)
+    addToCart(addonModalItem, selected)
+    closeAddonModal()
+  }
+
+  const updateQuantity = (cartItemId: string, delta: number) => {
+    setCart((prev) =>
+      prev
         .map((item) => {
-          if (item.menu_item.id === menuItemId) {
-            const newQuantity = item.quantity + delta
-            return newQuantity > 0 ? { ...item, quantity: newQuantity } : null
-          }
-          return item
+          if (item.id !== cartItemId) return item
+          const newQuantity = item.quantity + delta
+          return newQuantity > 0 ? { ...item, quantity: newQuantity } : null
         })
         .filter((item): item is CartItem => item !== null),
     )
   }
 
-  const removeFromCart = (menuItemId: string) => {
-    setCart(cart.filter((item) => item.menu_item.id !== menuItemId))
+  const removeFromCart = (cartItemId: string) => {
+    setCart((prev) => prev.filter((item) => item.id !== cartItemId))
   }
 
-  const updateItemNotes = (menuItemId: string, notes: string) => {
-    setCart(cart.map((item) => (item.menu_item.id === menuItemId ? { ...item, notes } : item)))
+  const updateItemNotes = (cartItemId: string, notes: string) => {
+    setCart((prev) =>
+      prev.map((item) =>
+        item.id === cartItemId ? { ...item, notes } : item,
+      ),
+    )
   }
 
-  const subtotal = cart.reduce((sum, item) => sum + item.menu_item.price * item.quantity, 0)
+  const cartItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0)
+
+  const subtotal = cart.reduce((sum, item) => {
+    const addonsPerUnit =
+      item.addons?.reduce(
+        (addonSum, a) => addonSum + a.addon.price * a.quantity,
+        0,
+      ) ?? 0
+
+    const unitTotal = item.menu_item.price + addonsPerUnit
+    return sum + unitTotal * item.quantity
+  }, 0)
+
   const total = subtotal + Number.parseFloat(deliveryFee || "0")
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
@@ -259,19 +384,68 @@ export function OrderFlowSteps({ menuItems, userId }: OrderFlowStepsProps) {
 
       if (orderError) throw orderError
 
-      // Create order items
-      const orderItems = cart.map((item) => ({
-        order_id: order.id,
-        menu_item_id: item.menu_item.id,
-        quantity: item.quantity,
-        unit_price: item.menu_item.price,
-        subtotal: item.menu_item.price * item.quantity,
-        notes: item.notes || null,
-      }))
+      // Create order items (incluindo complementos)
+      const orderItemsPayload = cart.map((item) => {
+        const addonsPerUnit =
+          item.addons?.reduce(
+            (addonSum, a) => addonSum + a.addon.price * a.quantity,
+            0,
+          ) ?? 0
 
-      const { error: itemsError } = await supabase.from("order_items").insert(orderItems)
+        const lineSubtotal =
+          (item.menu_item.price + addonsPerUnit) * item.quantity
+
+        return {
+          order_id: order.id,
+          menu_item_id: item.menu_item.id,
+          quantity: item.quantity,
+          unit_price: item.menu_item.price,
+          subtotal: lineSubtotal,
+          notes: item.notes || null,
+        }
+      })
+
+      const { data: insertedOrderItems, error: itemsError } = await supabase
+        .from("order_items")
+        .insert(orderItemsPayload)
+        .select()
 
       if (itemsError) throw itemsError
+
+      // Create order_item_addons
+      const orderItemAddonsPayload: {
+        order_item_id: string
+        menu_addon_id: string
+        quantity: number
+        unit_price: number
+        subtotal: number
+      }[] = []
+
+      insertedOrderItems?.forEach((orderItem, index) => {
+        const cartItem = cart[index]
+        if (!cartItem || !cartItem.addons || cartItem.addons.length === 0) return
+
+        cartItem.addons.forEach((addonEntry) => {
+          const totalAddonQty = addonEntry.quantity * cartItem.quantity
+          if (totalAddonQty <= 0) return
+
+          orderItemAddonsPayload.push({
+            order_item_id: orderItem.id,
+            menu_addon_id: addonEntry.addon.id,
+            quantity: totalAddonQty,
+            unit_price: addonEntry.addon.price,
+            subtotal: addonEntry.addon.price * totalAddonQty,
+          })
+        })
+      })
+
+      if (orderItemAddonsPayload.length > 0) {
+        const { error: addonsError } = await supabase
+          .from("order_item_addons")
+          .insert(orderItemAddonsPayload)
+
+        if (addonsError) throw addonsError
+      }
 
       window.location.href = "/"
     } catch (error) {
@@ -290,11 +464,11 @@ export function OrderFlowSteps({ menuItems, userId }: OrderFlowStepsProps) {
           <div key={step} className="flex items-center">
             <div
               className={`flex items-center justify-center w-10 h-10 rounded-full text-sm font-bold ${step === currentStep
-                  ? "bg-black text-white"
-                  : ["customer", "items", "address", "payment"].indexOf(step) <
-                    ["customer", "items", "address", "payment"].indexOf(currentStep)
-                    ? "bg-gray-500 text-white"
-                    : "bg-gray-200 text-gray-600"
+                ? "bg-black text-white"
+                : ["customer", "items", "address", "payment"].indexOf(step) <
+                  ["customer", "items", "address", "payment"].indexOf(currentStep)
+                  ? "bg-gray-500 text-white"
+                  : "bg-gray-200 text-gray-600"
                 }`}
             >
               {idx + 1}
@@ -302,9 +476,9 @@ export function OrderFlowSteps({ menuItems, userId }: OrderFlowStepsProps) {
             {idx < 3 && (
               <div
                 className={`w-12 h-1 mx-2 ${["customer", "items", "address", "payment"].indexOf(step) <
-                    ["customer", "items", "address", "payment"].indexOf(currentStep)
-                    ? "bg-green-500"
-                    : "bg-gray-200"
+                  ["customer", "items", "address", "payment"].indexOf(currentStep)
+                  ? "bg-green-500"
+                  : "bg-gray-200"
                   }`}
               />
             )}
@@ -492,141 +666,274 @@ export function OrderFlowSteps({ menuItems, userId }: OrderFlowStepsProps) {
 
       {/* Step 2: Items Selection */}
       {currentStep === "items" && (
-        <div className="grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Selecionar Itens</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Tabs defaultValue={categories[0]}>
-                  <TabsList className="w-full justify-start overflow-x-auto">
+        <>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Selecionar Itens</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Tabs defaultValue={categories[0]}>
+                    <TabsList className="w-full justify-start overflow-x-auto">
+                      {categories.map((category) => (
+                        <TabsTrigger key={category} value={category}>
+                          {category}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
                     {categories.map((category) => (
-                      <TabsTrigger key={category} value={category}>
-                        {category}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                  {categories.map((category) => (
-                    <TabsContent key={category} value={category} className="space-y-3 mt-4">
-                      {menuItems
-                        .filter((item) => item.category === category)
-                        .map((item) => (
-                          <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
-                            <div className="flex-1">
-                              <h4 className="font-medium">{item.name}</h4>
-                              {item.description && <p className="text-sm text-muted-foreground">{item.description}</p>}
-                              <p className="text-sm font-semibold mt-1">{formatCurrency(item.price)}</p>
+                      <TabsContent key={category} value={category} className="space-y-3 mt-4">
+                        {menuItems
+                          .filter((item) => item.category === category)
+                          .map((item) => (
+                            <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
+                              <div className="flex-1">
+                                <h4 className="font-medium">{item.name}</h4>
+                                {item.description && <p className="text-sm text-muted-foreground">{item.description}</p>}
+                                <p className="text-sm font-semibold mt-1">{formatCurrency(item.price)}</p>
+                              </div>
+                              <Button type="button" size="sm" onClick={() => handleAddClick(item)}>
+                                <Plus className="h-4 w-4" />
+                              </Button>
                             </div>
-                            <Button type="button" size="sm" onClick={() => addToCart(item)}>
-                              <Plus className="h-4 w-4" />
+                          ))}
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Cart Sidebar */}
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ShoppingCart className="h-5 w-5" />
+                    <span>Carrinho</span>
+                    {cartItemsCount > 0 && (
+                      <span className="inline-flex items-center justify-center rounded-md bg-gray-200 text-xs font-semibold px-2 py-0.5 min-w-[24px]">
+                        {String(cartItemsCount).padStart(2, "0")}
+                      </span>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {cart.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">Carrinho vazio</p>
+                  ) : (
+                    <>
+                      <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                        {cart.map((item) => {
+                          const addonsPerUnit =
+                            item.addons?.reduce(
+                              (addonSum, a) => addonSum + a.addon.price * a.quantity,
+                              0,
+                            ) ?? 0
+                          const lineTotal =
+                            (item.menu_item.price + addonsPerUnit) * item.quantity
+
+                          const addonsLabel =
+                            item.addons && item.addons.length > 0
+                              ? item.addons
+                                .map((a) =>
+                                  a.quantity > 1
+                                    ? `${a.addon.name} x${a.quantity}`
+                                    : a.addon.name,
+                                )
+                                .join(", ")
+                              : ""
+
+                          return (
+                            <div
+                              key={item.id}
+                              className="space-y-2 pb-3 border-b last:border-0"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <h5 className="font-medium text-sm truncate">
+                                    {item.menu_item.name}
+                                  </h5>
+                                  {addonsLabel && (
+                                    <p className="text-xs text-muted-foreground">
+                                      {addonsLabel}
+                                    </p>
+                                  )}
+                                  <p className="text-sm text-muted-foreground">
+                                    {formatCurrency(lineTotal)}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-7 w-7 bg-transparent"
+                                    onClick={() => updateQuantity(item.id, -1)}
+                                  >
+                                    <Minus className="h-3 w-3" />
+                                  </Button>
+                                  <span className="w-8 text-center text-sm font-medium">
+                                    {item.quantity}
+                                  </span>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-7 w-7 bg-transparent"
+                                    onClick={() => updateQuantity(item.id, 1)}
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-destructive"
+                                    onClick={() => removeFromCart(item.id)}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                              <Input
+                                placeholder="Observações..."
+                                value={item.notes}
+                                onChange={(e) => updateItemNotes(item.id, e.target.value)}
+                                className="text-sm"
+                              />
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      <div className="space-y-2 pt-2 border-t">
+                        <div className="flex justify-between text-sm">
+                          <span>Subtotal:</span>
+                          <span className="font-medium">{formatCurrency(subtotal)}</span>
+                        </div>
+                        <div className="flex justify-between text-lg font-bold">
+                          <span>Total:</span>
+                          <span className="">{formatCurrency(total)}</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={() => setCurrentStep("customer")} className="flex-1">
+                  <ChevronLeft className="h-4 w-4 mr-2" />
+                  Voltar
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => setCurrentStep("address")}
+                  disabled={cart.length === 0}
+                  className="flex-1"
+                >
+                  Próximo
+                  <ChevronRight className="h-4 w-4 ml-2" />
+                </Button>
+              </div>
+            </div>
+          </div>
+          <Dialog open={isAddonModalOpen} onOpenChange={(open) => !open && closeAddonModal()}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>
+                  {addonModalItem
+                    ? `Adicionar complementos - ${addonModalItem.name}`
+                    : "Complementos"}
+                </DialogTitle>
+              </DialogHeader>
+
+              {addonModalItem && (
+                <div className="space-y-3">
+                  {addonSelections.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Este item não possui complementos configurados.
+                    </p>
+                  ) : (
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {addonSelections.map((entry) => (
+                        <div
+                          key={entry.addon.id}
+                          className="flex items-center justify-between gap-2 border rounded-md px-2 py-1"
+                        >
+                          <div className="flex flex-col">
+                            <span className="text-sm">{entry.addon.name}</span>
+                            {entry.addon.description && (
+                              <span className="text-xs text-muted-foreground">
+                                {entry.addon.description}
+                              </span>
+                            )}
+                            <span className="text-xs font-medium">
+                              {formatCurrency(entry.addon.price)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7 bg-transparent"
+                              onClick={() =>
+                                updateAddonSelectionQuantity(
+                                  entry.addon.id,
+                                  -1,
+                                )
+                              }
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="w-6 text-center text-sm">
+                              {entry.quantity}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7 bg-transparent"
+                              onClick={() =>
+                                updateAddonSelectionQuantity(
+                                  entry.addon.id,
+                                  1,
+                                )
+                              }
+                            >
+                              <Plus className="h-3 w-3" />
                             </Button>
                           </div>
-                        ))}
-                    </TabsContent>
-                  ))}
-                </Tabs>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Cart Sidebar */}
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ShoppingCart className="h-5 w-5" />
-                  Carrinho
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {cart.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">Carrinho vazio</p>
-                ) : (
-                  <>
-                    <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                      {cart.map((item) => (
-                        <div key={item.menu_item.id} className="space-y-2 pb-3 border-b last:border-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <h5 className="font-medium text-sm truncate">{item.menu_item.name}</h5>
-                              <p className="text-sm text-muted-foreground">
-                                {formatCurrency(item.menu_item.price * item.quantity)}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                className="h-7 w-7 bg-transparent"
-                                onClick={() => updateQuantity(item.menu_item.id, -1)}
-                              >
-                                <Minus className="h-3 w-3" />
-                              </Button>
-                              <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                className="h-7 w-7 bg-transparent"
-                                onClick={() => updateQuantity(item.menu_item.id, 1)}
-                              >
-                                <Plus className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-destructive"
-                                onClick={() => removeFromCart(item.menu_item.id)}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-                          <Input
-                            placeholder="Observações..."
-                            value={item.notes}
-                            onChange={(e) => updateItemNotes(item.menu_item.id, e.target.value)}
-                            className="text-sm"
-                          />
                         </div>
                       ))}
                     </div>
+                  )}
+                </div>
+              )}
 
-                    <div className="space-y-2 pt-2 border-t">
-                      <div className="flex justify-between text-sm">
-                        <span>Subtotal:</span>
-                        <span className="font-medium">{formatCurrency(subtotal)}</span>
-                      </div>
-                      <div className="flex justify-between text-lg font-bold">
-                        <span>Total:</span>
-                        <span className="">{formatCurrency(total)}</span>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={() => setCurrentStep("customer")} className="flex-1">
-                <ChevronLeft className="h-4 w-4 mr-2" />
-                Voltar
-              </Button>
-              <Button
-                type="button"
-                onClick={() => setCurrentStep("address")}
-                disabled={cart.length === 0}
-                className="flex-1"
-              >
-                Próximo
-                <ChevronRight className="h-4 w-4 ml-2" />
-              </Button>
-            </div>
-          </div>
-        </div>
+              <div className="flex gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={closeAddonModal}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  className="flex-1"
+                  onClick={handleConfirmAddons}
+                >
+                  Adicionar ao carrinho
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </>
       )}
 
       {/* Step 3: Address Selection */}

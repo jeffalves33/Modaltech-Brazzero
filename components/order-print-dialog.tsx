@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef } from "react"
+import { useEffect, useRef } from "react"
 import type { Order } from "@/lib/types"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -202,8 +202,16 @@ export function OrderPrintDialog({ order, open, onOpenChange }: OrderPrintDialog
     setTimeout(() => {
       printWindow.print()
       printWindow.close()
+      onOpenChange(false)
     }, 250)
   }
+
+  useEffect(() => {
+    if (!open) return
+    // assim que o dialog "abre", já dispara a impressão
+    handlePrint()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   const paymentMethodLabels: Record<string, string> = {
     dinheiro: "Dinheiro",
