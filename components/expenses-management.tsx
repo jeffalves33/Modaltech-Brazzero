@@ -27,6 +27,7 @@ export function ExpensesManagement({ activeSession, initialExpenses, userId }: E
     description: "",
     amount: "",
     category: "",
+    payment_method: "dinheiro",
   })
 
   const resetForm = () => {
@@ -34,6 +35,7 @@ export function ExpensesManagement({ activeSession, initialExpenses, userId }: E
       description: "",
       amount: "",
       category: "",
+      payment_method: "dinheiro",
     })
   }
 
@@ -51,6 +53,7 @@ export function ExpensesManagement({ activeSession, initialExpenses, userId }: E
           description: formData.description,
           amount: Number.parseFloat(formData.amount),
           category: formData.category || null,
+          payment_method: formData.payment_method,
           created_by: userId,
         })
         .select()
@@ -138,6 +141,22 @@ export function ExpensesManagement({ activeSession, initialExpenses, userId }: E
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="payment_method">Forma de pagamento *</Label>
+                  <select
+                    id="payment_method"
+                    className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                    value={formData.payment_method}
+                    onChange={(e) =>
+                      setFormData({ ...formData, payment_method: e.target.value })
+                    }
+                  >
+                    <option value="dinheiro">Dinheiro</option>
+                    <option value="pix">PIX</option>
+                    <option value="cartao_debito">Cartão de Débito</option>
+                    <option value="cartao_credito">Cartão de Crédito</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="category">Categoria</Label>
                   <Input
                     id="category"
@@ -178,7 +197,26 @@ export function ExpensesManagement({ activeSession, initialExpenses, userId }: E
                 <div key={expense.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex-1">
                     <h4 className="font-medium">{expense.description}</h4>
-                    {expense.category && <p className="text-sm text-muted-foreground">{expense.category}</p>}
+                    {expense.category && (
+                      <p className="text-sm text-muted-foreground">{expense.category}</p>
+                    )}
+                    {expense.payment_method && (
+                      <p className="text-xs text-muted-foreground">
+                        Forma de pagamento:{" "}
+                        {expense.payment_method === "dinheiro"
+                          ? "Dinheiro"
+                          : expense.payment_method === "pix"
+                            ? "PIX"
+                            : expense.payment_method === "cartao_debito"
+                              ? "Cartão de Débito"
+                              : expense.payment_method === "cartao_credito"
+                                ? "Cartão de Crédito"
+                                : expense.payment_method}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatDateTime(expense.created_at)}
+                    </p>
                     <p className="text-xs text-muted-foreground mt-1">{formatDateTime(expense.created_at)}</p>
                   </div>
                   <div className="flex items-center gap-3">

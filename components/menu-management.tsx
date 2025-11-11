@@ -18,15 +18,27 @@ import { formatCurrency } from "@/lib/format"
 import { Plus, Pencil, Trash2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
+interface InventoryItem {
+  id: string
+  name: string
+  unit: string
+}
+
 interface MenuManagementProps {
   initialItems: MenuItem[]
   initialAddons: MenuAddon[]
+  inventoryItems?: InventoryItem[]
 }
 
-export function MenuManagement({ initialItems, initialAddons }: MenuManagementProps) {
+interface IngredientSelection {
+  inventory_item_id: string
+  quantity: string // string para usar em input
+}
+
+export function MenuManagement({ initialItems, initialAddons, inventoryItems = [], }: MenuManagementProps) {
   const [items, setItems] = useState<MenuItem[]>(initialItems)
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null)
-
+  const [ingredientSelections, setIngredientSelections] = useState<IngredientSelection[]>([])
   const [addons, setAddons] = useState<MenuAddon[]>(initialAddons)
   const [editingAddon, setEditingAddon] = useState<MenuAddon | null>(null)
   const [isAddonDialogOpen, setIsAddonDialogOpen] = useState(false)
@@ -58,6 +70,7 @@ export function MenuManagement({ initialItems, initialAddons }: MenuManagementPr
     })
     setEditingItem(null)
     setSelectedAddonIds([])
+    setIngredientSelections([])
   }
 
   const openDialog = async (item?: MenuItem) => {
@@ -71,29 +84,68 @@ export function MenuManagement({ initialItems, initialAddons }: MenuManagementPr
         is_available: item.is_available,
       })
 
-      // Busca adicionais habilitados para esse item
       try {
         const supabase = createClient()
-        const { data, error } = await supabase
+
+        // 1) adicionais
+        const { data: addonRows, error: addonError } = await supabase
           .from("menu_item_addons")
           .select("menu_addon_id")
           .eq("menu_item_id", item.id)
 
-        if (error) {
-          console.error("Erro ao carregar adicionais do item:", error)
+        if (addonError) {
+          console.error("Erro ao carregar adicionais do item:", addonError)
           setSelectedAddonIds([])
         } else {
-          setSelectedAddonIds((data || []).map((row) => row.menu_addon_id))
+          setSelectedAddonIds((addonRows || []).map((row) => row.menu_addon_id))
+        }
+
+        // 2) ingredientes
+        const { data: ingredientRows, error: ingredientError } = await supabase
+          .from("menu_item_ingredients")
+          .select("inventory_item_id, quantity")
+          .eq("menu_item_id", item.id)
+
+        if (ingredientError) {
+          console.error("Erro ao carregar ingredientes do item:", ingredientError)
+          setIngredientSelections([])
+        } else {
+          setIngredientSelections(
+            (ingredientRows || []).map((row) => ({
+              inventory_item_id: row.inventory_item_id,
+              quantity: row.quantity.toString(),
+            })),
+          )
         }
       } catch (err) {
-        console.error("Erro inesperado ao carregar adicionais do item:", err)
+        console.error("Erro inesperado ao carregar dados do item:", err)
         setSelectedAddonIds([])
+        setIngredientSelections([])
       }
     } else {
       resetForm()
-      setSelectedAddonIds([]) // garantir limpo em item novo
     }
     setIsDialogOpen(true)
+  }
+
+  const updateIngredientSelection = (inventoryItemId: string, quantityStr: string) => {
+    setIngredientSelections((prev) => {
+      const qty = quantityStr.trim()
+      const existing = prev.find((i) => i.inventory_item_id === inventoryItemId)
+
+      if (!qty || Number.parseFloat(qty) <= 0) {
+        // remove se vazio ou zero
+        return prev.filter((i) => i.inventory_item_id !== inventoryItemId)
+      }
+
+      if (existing) {
+        return prev.map((i) =>
+          i.inventory_item_id === inventoryItemId ? { ...i, quantity: qty } : i,
+        )
+      }
+
+      return [...prev, { inventory_item_id: inventoryItemId, quantity: qty }]
+    })
   }
 
   const handleAddCategory = () => {
@@ -172,6 +224,30 @@ export function MenuManagement({ initialItems, initialAddons }: MenuManagementPr
           .insert(rows)
 
         if (insertError) throw insertError
+      }
+
+      // Ingredientes (receita)
+      const { error: deleteIngredientsError } = await supabase
+        .from("menu_item_ingredients")
+        .delete()
+        .eq("menu_item_id", savedItem.id)
+
+      if (deleteIngredientsError) throw deleteIngredientsError
+
+      const ingredientRows = ingredientSelections
+        .map((sel) => ({
+          menu_item_id: savedItem.id,
+          inventory_item_id: sel.inventory_item_id,
+          quantity: Number.parseFloat(sel.quantity),
+        }))
+        .filter((row) => !Number.isNaN(row.quantity) && row.quantity > 0)
+
+      if (ingredientRows.length > 0) {
+        const { error: insertIngredientsError } = await supabase
+          .from("menu_item_ingredients")
+          .insert(ingredientRows)
+
+        if (insertIngredientsError) throw insertIngredientsError
       }
 
       setIsDialogOpen(false)
@@ -374,7 +450,7 @@ export function MenuManagement({ initialItems, initialAddons }: MenuManagementPr
                     <Plus className="h-4 w-4" />
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-h-[90vh] overflow-y-auto rounded-lg">
                   <DialogHeader>
                     <DialogTitle>
                       {editingAddon ? "Editar Adicional" : "Novo Adicional"}
@@ -464,7 +540,7 @@ export function MenuManagement({ initialItems, initialAddons }: MenuManagementPr
                 Adicionar Item
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto rounded-lg">
               <DialogHeader>
                 <DialogTitle>{editingItem ? "Editar Item" : "Novo Item"}</DialogTitle>
               </DialogHeader>
@@ -565,6 +641,48 @@ export function MenuManagement({ initialItems, initialAddons }: MenuManagementPr
                         )
                       })}
                     </div>
+                  </div>
+                )}
+
+                {inventoryItems.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Insumos (receita por unidade)</Label>
+                    <div className="max-h-40 overflow-y-auto space-y-2 border rounded-md p-2">
+                      {inventoryItems.map((inv) => {
+                        const sel = ingredientSelections.find(
+                          (s) => s.inventory_item_id === inv.id,
+                        )
+
+                        return (
+                          <div
+                            key={inv.id}
+                            className="flex items-center justify-between gap-2 rounded-md px-2 py-1 hover:bg-muted/60"
+                          >
+                            <div className="flex flex-col">
+                              <span className="text-sm">{inv.name}</span>
+                              <span className="text-xs text-muted-foreground">
+                                Unidade: {inv.unit}
+                              </span>
+                            </div>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              className="w-24 h-8 text-right"
+                              value={sel?.quantity ?? ""}
+                              onChange={(e) =>
+                                updateIngredientSelection(inv.id, e.target.value)
+                              }
+                              placeholder="0"
+                            />
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Informe quanto de cada insumo é consumido por 1 unidade desse item
+                      (ex.: X-tudo usa 2 fatias de queijo).
+                    </p>
                   </div>
                 )}
 

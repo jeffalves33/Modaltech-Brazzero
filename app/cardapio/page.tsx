@@ -22,6 +22,7 @@ export default async function MenuPage() {
 
   const { data: menuItems } = await supabase.from("menu_items").select("*").order("category").order("name")
   const { data: menuAddons } = await supabase.from("menu_addons").select("*").order("name")
+  const { data: inventoryItems } = await supabase.from("inventory_items").select("id, name, unit").order("name")
 
   return (
     <div className="min-h-screen bg-background">
@@ -30,6 +31,7 @@ export default async function MenuPage() {
         <MenuManagement
           initialItems={menuItems || []}
           initialAddons={menuAddons || []}
+          inventoryItems={inventoryItems || []}
         />
       </main>
     </div>

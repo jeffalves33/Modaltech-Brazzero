@@ -42,7 +42,12 @@ export default async function CashPage() {
     <div className="min-h-screen bg-background">
       <Header user={user} />
       <main className="container mx-auto">
-        <CashManagement activeSession={activeSession} recentSessions={recentSessions || []} userId={user.id} />
+        <CashManagement
+          activeSession={activeSession}
+          recentSessions={recentSessions || []}
+          userId={user.id}
+          userName={user.name}
+        />
       </main>
     </div>
   )

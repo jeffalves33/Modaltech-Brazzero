@@ -35,6 +35,12 @@ interface OrderFlowStepsProps {
   userId: string
 }
 
+interface MenuItemIngredient {
+  menu_item_id: string
+  inventory_item_id: string
+  quantity: number
+}
+
 type OrderStep = "customer" | "items" | "address" | "payment"
 
 interface CartAddon {
@@ -51,12 +57,7 @@ interface CartItem {
 }
 
 
-export function OrderFlowSteps({
-  menuItems,
-  menuAddons,
-  menuItemAddons,
-  userId,
-}: OrderFlowStepsProps) {
+export function OrderFlowSteps({ menuItems, menuAddons, menuItemAddons, userId, }: OrderFlowStepsProps) {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState<OrderStep>("customer")
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -199,6 +200,72 @@ export function OrderFlowSteps({
       reference: "",
     })
     setCurrentStep("items")
+  }
+
+  const applyInventoryForOrder = async (orderId: string) => {
+    try {
+      // 1) quais itens de cardápio estão no carrinho
+      const menuItemIds = Array.from(
+        new Set(cart.map((item) => item.menu_item.id)),
+      )
+
+      if (menuItemIds.length === 0) return
+
+      // 2) carrega receita de cada item
+      const { data: itemIngredients, error: ingredientsError } =
+        await supabase
+          .from("menu_item_ingredients")
+          .select("menu_item_id, inventory_item_id, quantity")
+          .in("menu_item_id", menuItemIds)
+
+      if (ingredientsError) throw ingredientsError
+
+      const ingredients = (itemIngredients || []) as MenuItemIngredient[]
+
+      if (ingredients.length === 0) return
+
+      // 3) quantidade total vendida por item de cardápio
+      const quantityByMenuItemId: Record<string, number> = {}
+      cart.forEach((item) => {
+        quantityByMenuItemId[item.menu_item.id] =
+          (quantityByMenuItemId[item.menu_item.id] || 0) + item.quantity
+      })
+
+      // 4) consumo total por insumo
+      const consumptionByInventoryItem: Record<string, number> = {}
+
+      ingredients.forEach((ing) => {
+        const totalItems = quantityByMenuItemId[ing.menu_item_id] || 0
+        if (totalItems <= 0) return
+
+        const totalQty = ing.quantity * totalItems
+        consumptionByInventoryItem[ing.inventory_item_id] =
+          (consumptionByInventoryItem[ing.inventory_item_id] || 0) +
+          totalQty
+      })
+
+      const movementsPayload = Object.entries(consumptionByInventoryItem)
+        .filter(([, qty]) => qty > 0)
+        .map(([inventory_item_id, qty]) => ({
+          inventory_item_id,
+          movement_type: "out" as const,
+          reason: "order" as const,
+          quantity: qty,
+          order_id: orderId,
+          created_by: userId,
+        }))
+
+      if (movementsPayload.length === 0) return
+
+      const { error: movementError } = await supabase
+        .from("inventory_movements")
+        .insert(movementsPayload)
+
+      if (movementError) throw movementError
+    } catch (err) {
+      console.error("Error applying inventory for order:", err)
+      // aqui você pode decidir se mostra um alerta ou só loga
+    }
   }
 
   // Step 2: Items Selection
@@ -446,6 +513,9 @@ export function OrderFlowSteps({
 
         if (addonsError) throw addonsError
       }
+
+      // aplicar baixa de estoque com base nos insumos configurados
+      await applyInventoryForOrder(order.id)
 
       window.location.href = "/"
     } catch (error) {

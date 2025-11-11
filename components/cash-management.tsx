@@ -21,6 +21,7 @@ interface CashManagementProps {
   activeSession: CashSession | null
   recentSessions: CashSession[]
   userId: string
+  userName: string
 }
 
 interface DayTransaction {
@@ -32,11 +33,33 @@ interface DayTransaction {
   status?: string
 }
 
+interface PaymentMethodSummary {
+  key: "pix" | "card" | "cash"
+  label: string
+  count: number
+  total: number
+}
+
+interface CashClosureSummary {
+  date: string
+  payments: PaymentMethodSummary[]
+  totalOrders: number
+  totalSales: number
+  totalExpenses: number
+  netEntry: number
+  cashPrevious: number
+  cashSales: number
+  cashExpenses: number
+  cashCurrent: number
+}
+
 export function CashManagement({ activeSession: initialActiveSession, recentSessions, userId }: CashManagementProps) {
   const router = useRouter()
   const [activeSession, setActiveSession] = useState<CashSession | null>(initialActiveSession)
   const [isOpenDialogOpen, setIsOpenDialogOpen] = useState(false)
   const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false)
+  const [isSummaryDialogOpen, setIsSummaryDialogOpen] = useState(false)
+  const [closureSummary, setClosureSummary] = useState<CashClosureSummary | null>(null)
   const [initialAmount, setInitialAmount] = useState("0.00")
   const [finalAmount, setFinalAmount] = useState("0.00")
   const [notes, setNotes] = useState("")
@@ -131,21 +154,63 @@ export function CashManagement({ activeSession: initialActiveSession, recentSess
     if (!activeSession) return
 
     try {
+      // Pedidos da sessão por forma de pagamento
       const { data: orders } = await supabase
         .from("orders")
-        .select("total")
+        .select("total, payment_method")
         .eq("cash_session_id", activeSession.id)
         .in("status", ["em_producao", "em_rota", "entregue"])
 
-      const totalSales = orders?.reduce((sum, order) => sum + order.total, 0) || 0
+      const paidOrders = (orders || []) as { total: number; payment_method: string }[]
 
+      const paymentTotals: Record<string, { count: number; total: number }> = {}
+
+      paidOrders.forEach((order) => {
+        const method = order.payment_method || "dinheiro"
+        if (!paymentTotals[method]) {
+          paymentTotals[method] = { count: 0, total: 0 }
+        }
+        paymentTotals[method].count += 1
+        paymentTotals[method].total += order.total
+      })
+
+      const totalSales = paidOrders.reduce((sum, o) => sum + o.total, 0)
+      const totalOrders = paidOrders.length
+
+      const pix = paymentTotals["pix"] || { count: 0, total: 0 }
+      const cash = paymentTotals["dinheiro"] || { count: 0, total: 0 }
+      const cardDebit = paymentTotals["cartao_debito"] || { count: 0, total: 0 }
+      const cardCredit = paymentTotals["cartao_credito"] || { count: 0, total: 0 }
+      const card = {
+        count: cardDebit.count + cardCredit.count,
+        total: cardDebit.total + cardCredit.total,
+      }
+
+      // Despesas da sessão por forma de pagamento
       const { data: expenses } = await supabase
         .from("cash_expenses")
-        .select("amount")
+        .select("amount, payment_method")
         .eq("cash_session_id", activeSession.id)
 
-      const totalExpenses = expenses?.reduce((sum, expense) => sum + expense.amount, 0) || 0
+      const expensesList = (expenses || []) as { amount: number; payment_method: string | null }[]
 
+      const totalExpenses = expensesList.reduce((sum, exp) => sum + exp.amount, 0)
+
+      const expenseTotalsByMethod: Record<string, number> = {}
+      expensesList.forEach((exp) => {
+        const method = exp.payment_method || "dinheiro"
+        expenseTotalsByMethod[method] = (expenseTotalsByMethod[method] || 0) + exp.amount
+      })
+
+      const cashExpenses = expenseTotalsByMethod["dinheiro"] || 0
+
+      const netEntry = totalSales - totalExpenses
+
+      const cashPrevious = activeSession.initial_amount
+      const cashSales = cash.total
+      const cashCurrent = cashPrevious + cashSales - cashExpenses
+
+      // Atualiza sessão no banco
       const { error } = await supabase
         .from("cash_sessions")
         .update({
@@ -160,16 +225,197 @@ export function CashManagement({ activeSession: initialActiveSession, recentSess
 
       if (error) throw error
 
-      setActiveSession(null)
+      const summary: CashClosureSummary = {
+        date: new Date().toISOString(),
+        payments: [
+          { key: "pix", label: "PIX", count: pix.count, total: pix.total },
+          { key: "card", label: "CARTÃO DE CRÉDITO/DÉBITO", count: card.count, total: card.total },
+          { key: "cash", label: "DINHEIRO", count: cash.count, total: cash.total },
+        ],
+        totalOrders,
+        totalSales,
+        totalExpenses,
+        netEntry,
+        cashPrevious,
+        cashSales,
+        cashExpenses,
+        cashCurrent,
+      }
+
+      setClosureSummary(summary)
       setIsCloseDialogOpen(false)
-      setFinalAmount("0.00")
-      setNotes("")
-      setDayTransactions([])
-      router.refresh()
+      setIsSummaryDialogOpen(true)
     } catch (error) {
       console.error("Error closing cash:", error)
       alert("Erro ao fechar caixa")
     }
+  }
+
+  const handleFinishClosure = () => {
+    setIsSummaryDialogOpen(false)
+    setClosureSummary(null)
+    setActiveSession(null)
+    setFinalAmount("0.00")
+    setNotes("")
+    setDayTransactions([])
+    router.refresh()
+  }
+
+  const handlePrintClosure = () => {
+    if (!closureSummary) return
+
+    const pix = closureSummary.payments.find((p) => p.key === "pix")
+    const card = closureSummary.payments.find((p) => p.key === "card")
+    const cash = closureSummary.payments.find((p) => p.key === "cash")
+
+    const dateStr = formatDateTime(closureSummary.date)
+    const format = (value: number) => formatCurrency(value)
+
+    const printWindow = window.open("", "_blank", "width=380,height=600")
+    if (!printWindow) return
+
+    const html = `
+      <html>
+        <head>
+          <title>Fechamento de caixa</title>
+          <style>
+            body {
+              margin: 0;
+              padding: 0;
+              font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+              background: #f5eddc;
+            }
+            .ticket {
+              width: 280px;
+              margin: 0 auto;
+              padding: 16px 18px;
+            }
+            .brand {
+              text-align: center;
+              font-size: 20px;
+              font-weight: 800;
+              letter-spacing: 0.18em;
+              margin-bottom: 12px;
+            }
+            .title {
+              font-size: 14px;
+              font-weight: 600;
+              margin-bottom: 4px;
+            }
+            .meta {
+              font-size: 11px;
+              margin: 2px 0;
+            }
+            .line {
+              border-bottom: 1px solid #000;
+              margin: 10px 0;
+            }
+            .row {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              font-size: 12px;
+              margin: 2px 0;
+            }
+            .row .count {
+              width: 28px;
+              font-weight: 600;
+            }
+            .row .label {
+              flex: 1;
+              margin: 0 6px;
+              text-transform: uppercase;
+              font-weight: 600;
+            }
+            .row .value {
+              min-width: 80px;
+              text-align: right;
+              font-weight: 600;
+            }
+            .dashed {
+              border-bottom: 1px dashed #000;
+              margin: 6px 0;
+            }
+            .negative {
+              color: #b91c1c;
+            }
+            .section-title {
+              font-size: 12px;
+              font-weight: 600;
+              margin-top: 10px;
+              margin-bottom: 2px;
+            }
+            .footer {
+              margin-top: 18px;
+              text-align: center;
+              font-size: 11px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="ticket">
+            <div class="brand">BRAZZERO</div>
+
+            <div class="title">Fechamento de caixa</div>
+            <div class="meta">Realizado em: ${dateStr}</div>
+            <div class="meta">Por: <strong>${userName}</strong></div>
+
+            <div class="line"></div>
+
+            <div class="row">
+              <span class="count">${pix?.count ?? 0}</span>
+              <span class="label">PIX</span>
+              <span class="value">${format(pix?.total ?? 0)}</span>
+            </div>
+            <div class="dashed"></div>
+            <div class="row">
+              <span class="count">${card?.count ?? 0}</span>
+              <span class="label">CARTÃO</span>
+              <span class="value">${format(card?.total ?? 0)}</span>
+            </div>
+            <div class="dashed"></div>
+            <div class="row">
+              <span class="count">${cash?.count ?? 0}</span>
+              <span class="label">DINHEIRO</span>
+              <span class="value">${format(cash?.total ?? 0)}</span>
+            </div>
+
+            <div class="line"></div>
+
+            <div class="row">
+              <span class="label">Despesas</span>
+              <span class="value negative">- ${format(closureSummary.totalExpenses)}</span>
+            </div>
+
+            <div class="line"></div>
+
+            <div class="section-title">Caixa anterior</div>
+            <div class="row">
+              <span class="label"></span>
+              <span class="value">${format(closureSummary.cashPrevious)}</span>
+            </div>
+
+            <div class="section-title">Caixa atual</div>
+            <div class="row">
+              <span class="label"></span>
+              <span class="value">${format(closureSummary.cashCurrent)}</span>
+            </div>
+
+            <div class="footer">
+              Bom apetite!<br />
+              @brazzeroburger_
+            </div>
+          </div>
+        </body>
+      </html>
+    `
+    printWindow.document.write(html)
+    printWindow.document.close()
+    printWindow.focus()
+    printWindow.print()
+    printWindow.close()
+
+    handleFinishClosure()
   }
 
   return (
@@ -275,9 +521,8 @@ export function CashManagement({ activeSession: initialActiveSession, recentSess
                             </div>
                           </div>
                           <p
-                            className={`font-bold text-right ${
-                              transaction.amount >= 0 ? "text-green-600" : "text-red-600"
-                            }`}
+                            className={`font-bold text-right ${transaction.amount >= 0 ? "text-green-600" : "text-red-600"
+                              }`}
                           >
                             {transaction.amount >= 0 ? "+" : ""}
                             {formatCurrency(transaction.amount)}
@@ -348,8 +593,8 @@ export function CashManagement({ activeSession: initialActiveSession, recentSess
                       <p className="font-bold text-lg">
                         {formatCurrency(
                           activeSession.initial_amount +
-                            dayTransactions.filter((t) => t.type === "order").reduce((s, t) => s + t.amount, 0) +
-                            dayTransactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0),
+                          dayTransactions.filter((t) => t.type === "order").reduce((s, t) => s + t.amount, 0) +
+                          dayTransactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0),
                         )}
                       </p>
                     </div>
@@ -358,6 +603,101 @@ export function CashManagement({ activeSession: initialActiveSession, recentSess
               </Tabs>
             </CardContent>
           </Card>
+
+          {closureSummary && (
+            <Dialog open={isSummaryDialogOpen} onOpenChange={setIsSummaryDialogOpen}>
+              <DialogContent className="max-h-[90vh] overflow-y-auto rounded-lg">
+                <DialogHeader className="pb-2">
+                  <DialogTitle>Fechamento de caixa</DialogTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {formatDateTime(closureSummary.date)}
+                  </p>
+                </DialogHeader>
+
+                <div className="space-y-6">
+                  <div className="border rounded-2xl p-4 bg-muted/40">
+                    <div className="grid grid-cols-[60px,1fr,120px] text-[11px] font-semibold text-muted-foreground uppercase tracking-wide pb-2">
+                      <span>Vendas</span>
+                      <span>Forma de pagamento</span>
+                      <span className="text-right">Valor total</span>
+                    </div>
+
+                    {closureSummary.payments.map((row) => (
+                      <div
+                        key={row.key}
+                        className="grid grid-cols-[60px,1fr,120px] items-center py-2 border-t"
+                      >
+                        <span className="text-sm font-semibold">
+                          {row.count || "--"}
+                        </span>
+                        <span className="text-sm font-semibold">
+                          {row.label}
+                        </span>
+                        <span className="text-sm text-right font-semibold">
+                          {formatCurrency(row.total)}
+                        </span>
+                      </div>
+                    ))}
+
+                    <div className="grid grid-cols-[60px,1fr,120px] items-center py-2 border-t text-red-600">
+                      <span className="text-sm font-semibold">--</span>
+                      <span className="text-sm font-semibold uppercase">
+                        Despesas de hoje
+                      </span>
+                      <span className="text-sm text-right font-semibold">
+                        - {formatCurrency(closureSummary.totalExpenses)}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-[60px,1fr,120px] items-center py-3 border-t mt-1">
+                      <span className="text-base font-bold">
+                        {closureSummary.totalOrders}
+                      </span>
+                      <span className="text-xs font-semibold uppercase text-muted-foreground">
+                        Saldo entrada
+                      </span>
+                      <span className="text-base font-bold text-right">
+                        {formatCurrency(closureSummary.netEntry)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Caixa anterior</span>
+                      <span className="font-medium">
+                        {formatCurrency(closureSummary.cashPrevious)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Caixa atual</span>
+                      <span className="font-semibold">
+                        {formatCurrency(closureSummary.cashCurrent)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1 bg-transparent"
+                      onClick={handleFinishClosure}
+                    >
+                      Fechar
+                    </Button>
+                    <Button
+                      type="button"
+                      className="flex-1"
+                      onClick={handlePrintClosure}
+                    >
+                      Imprimir
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
         </>
       ) : (
         <Card>
