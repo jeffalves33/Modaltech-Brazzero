@@ -1,6 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -37,7 +38,6 @@ export function ClientsManagement({ initialCustomers, activeSession }: ClientsMa
     const [customers, setCustomers] = useState<Customer[]>(initialCustomers)
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
     const [addresses, setAddresses] = useState<CustomerAddress[]>([])
-    console.log("🚀 ~ ClientsManagement ~ addresses: ", addresses)
     const [customerStats, setCustomerStats] = useState<{ orders: number; total: number }>({ orders: 0, total: 0 })
     const [searchTerm, setSearchTerm] = useState("")
     const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
@@ -66,7 +66,6 @@ export function ClientsManagement({ initialCustomers, activeSession }: ClientsMa
 
         try {
             const addressesFromDb = await getCustomerAddresses(customer.id)
-            console.log("🚀 ~ handleLoadCustomerDetails ~ addressesFromDb: ", addressesFromDb)
             setAddresses(addressesFromDb)
             setCustomerStats({ orders: 0, total: 0 })
         } catch (error) {
@@ -153,12 +152,19 @@ export function ClientsManagement({ initialCustomers, activeSession }: ClientsMa
     const handleDeleteCustomer = async (customerId: string) => {
         setLoading(true)
         try {
-            await deleteCustomer(customerId)
-            setDeletingCustomerId(null)
-            setSelectedCustomer(null)
+            const supabase = createClient()
+
+            // Delega a decisão (apagar x arquivar) para a função do banco
+            const { error } = await supabase.rpc("safe_archive_customer", { p_id: customerId })
+            if (error) throw error
+
+            // Some da lista local (não exibimos arquivados)
             setCustomers((prev) => prev.filter((c) => c.id !== customerId))
+            setSelectedCustomer(null)
+            setDeletingCustomerId(null)
         } catch (error) {
-            console.error("Error deleting customer:", error)
+            console.error("Error deleting/archiving customer:", error)
+            alert("Não foi possível remover o cliente.")
         } finally {
             setLoading(false)
         }

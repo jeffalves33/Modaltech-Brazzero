@@ -20,7 +20,7 @@ export default async function ClientsPage() {
     redirect("/auth/login")
   }
 
-  const { data: customers } = await supabase.from("customers").select("*").order("name")
+  const { data: customers } = await supabase.from("customers").select("*").in("is_archived", ["FALSE"]).order("name")
 
   const { data: activeSessions } = await supabase
     .from("cash_sessions")

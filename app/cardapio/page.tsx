@@ -17,11 +17,12 @@ export default async function MenuPage() {
   const { data: user } = await supabase.from("users").select("*").eq("id", authUser.id).single()
 
   if (!user) {
+    console.log("aqui")
     redirect("/auth/login")
   }
 
-  const { data: menuItems } = await supabase.from("menu_items").select("*").order("category").order("name")
-  const { data: menuAddons } = await supabase.from("menu_addons").select("*").order("name")
+  const { data: menuItems } = await supabase.from("menu_items").select("*").in("is_archived",["FALSE"]).order("category").order("name")
+  const { data: menuAddons } = await supabase.from("menu_addons").select("*").in("is_active",["TRUE"]).order("name")
   const { data: inventoryItems } = await supabase.from("inventory_items").select("id, name, unit").order("name")
 
   return (

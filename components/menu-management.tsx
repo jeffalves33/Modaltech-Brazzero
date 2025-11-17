@@ -259,17 +259,18 @@ export function MenuManagement({ initialItems, initialAddons, inventoryItems = [
   }
 
   const handleDelete = async (id: string) => {
-
     const supabase = createClient()
-    const { error } = await supabase.from("menu_items").delete().eq("id", id)
+    try {
+      // Delega a decisão (apagar x arquivar) para o banco
+      const { error } = await supabase.rpc("safe_archive_menu_item", { p_id: id })
+      if (error) throw error
 
-    if (error) {
-      console.error("Error deleting item:", error)
-      alert("Erro ao excluir item")
-      return
+      // Remove da lista (não exibimos arquivados)
+      setItems((prev) => prev.filter((item) => item.id !== id))
+    } catch (error) {
+      console.error("Error archiving/deleting item:", error)
+      alert("Não foi possível remover o item (arquivar ou deletar).")
     }
-
-    setItems(items.filter((item) => item.id !== id))
   }
 
   const toggleAvailability = async (item: MenuItem) => {
@@ -378,16 +379,12 @@ export function MenuManagement({ initialItems, initialAddons, inventoryItems = [
   const handleDeleteAddon = async (addonId: string) => {
     try {
       const supabase = createClient()
-      const { error } = await supabase
-        .from("menu_addons")
-        .delete()
-        .eq("id", addonId)
-
+      const { error } = await supabase.rpc("safe_archive_menu_addon", { p_id: addonId })
       if (error) throw error
-
-      setAddons((prev) => prev.filter((addon) => addon.id !== addonId))
+      setAddons((prev) => prev.filter((a) => a.id !== addonId))
     } catch (error) {
-      console.error("Erro ao deletar adicional:", error)
+      console.error("Erro ao arquivar/deletar adicional:", error)
+      alert("Não foi possível remover o adicional.")
     }
   }
 
@@ -402,7 +399,7 @@ export function MenuManagement({ initialItems, initialAddons, inventoryItems = [
           <CardContent className="space-y-2">
             <div className="space-y-1 max-h-[500px] overflow-y-auto">
               {categories.map((cat) => (
-                <div key={cat} className="p-2.5 border rounded-md bg-muted/50 text-sm">
+                <div key={cat} className="p-2.5 border rounded-md bg-muted/50 text-sm flex items-center justify-between">
                   {cat}
                 </div>
               ))}

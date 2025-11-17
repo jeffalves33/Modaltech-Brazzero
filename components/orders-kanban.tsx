@@ -95,22 +95,24 @@ export function OrdersKanban() {
     loadOrders(activeCashSessionId)
   }
 
-  const deleteOrder = async (orderId: string) => {
-    if (!window.confirm("Tem certeza que deseja excluir este pedido?")) {
+  const cancelOrder = async (order: Order) => {
+    if (order.status === "entregue") {
+      alert("Pedido entregue não pode ser cancelado.")
       return
     }
 
     const supabase = createClient()
-    const { error } = await supabase.from("orders").delete().eq("id", orderId)
 
+    // chama a função SQL que estorna estoque e marca status=cancelado
+    const { error } = await supabase.rpc("cancel_order", { p_order_id: order.id })
     if (error) {
-      console.error("Erro ao excluir pedido:", error)
-      alert("Erro ao excluir pedido.")
+      console.error("Erro ao cancelar pedido:", error)
+      alert("Erro ao cancelar pedido.")
       return
     }
 
-    // remove da lista local sem precisar recarregar tudo
-    setOrders((prev) => prev.filter((order) => order.id !== orderId))
+    // some da lista (colunas já não exibem 'cancelado')
+    setOrders((prev) => prev.filter((o) => o.id !== order.id))
   }
 
   const getOrdersByStatus = (status: OrderStatus) => {
@@ -205,18 +207,20 @@ export function OrdersKanban() {
           )}
 
           <div className="flex gap-2 pt-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 text-destructive"
-              onClick={() => deleteOrder(order.id)}
-              title="Excluir pedido"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            {order.status != "entregue" && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 text-destructive"
+                onClick={() => cancelOrder(order)}
+                title="Excluir pedido"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
 
-            <Button
+            {/*<Button
               type="button"
               variant="ghost"
               size="sm"
@@ -224,7 +228,7 @@ export function OrdersKanban() {
               onClick={() => setPrintOrder(order)}
             >
               <PencilLine className="h-4 w-4" />
-            </Button>
+            </Button>*/}
 
             <Button
               type="button"

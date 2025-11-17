@@ -53,7 +53,7 @@ interface CashClosureSummary {
   cashCurrent: number
 }
 
-export function CashManagement({ activeSession: initialActiveSession, recentSessions, userId }: CashManagementProps) {
+export function CashManagement({ activeSession: initialActiveSession, recentSessions, userId, userName }: CashManagementProps) {
   const router = useRouter()
   const [activeSession, setActiveSession] = useState<CashSession | null>(initialActiveSession)
   const [isOpenDialogOpen, setIsOpenDialogOpen] = useState(false)
@@ -90,6 +90,7 @@ export function CashManagement({ activeSession: initialActiveSession, recentSess
       .from("orders")
       .select("id, customer_id, total, status, created_at, customers(name)")
       .eq("cash_session_id", activeSession.id)
+      .in("status", ["em_producao", "em_rota", "entregue"])
       .order("created_at", { ascending: false })
 
     orders?.forEach((order: any) => {
