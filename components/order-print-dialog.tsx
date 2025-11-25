@@ -233,7 +233,13 @@ export function printOrderReceipt(order: Order) {
         const name = item.menu_item?.name ?? ""
         const subtotal = formatCurrency(item.subtotal)
         const note = item.notes ? `<p class="item-note">Obs: ${item.notes}</p>` : ""
-
+        const addonsHtml = (item.addons || [])
+          .map((addon) => {
+            const addonName = addon.menu_addon?.name ?? ""
+            const addonQuantity = addon.quantity ?? ""
+            return `<p class="item-note">+${addonQuantity} ${addonName}</p>`
+          })
+          .join("")
         return `
                     <div class="item-row">
                       <div class="item-header">
@@ -244,6 +250,7 @@ export function printOrderReceipt(order: Order) {
                         <span class="item-price">${subtotal}</span>
                       </div>
                       ${note}
+                      ${addonsHtml}
                       <hr class="dashed-divider" />
                     </div>
                   `

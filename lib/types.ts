@@ -108,6 +108,14 @@ export interface Order {
   items?: OrderItem[]
 }
 
+export interface OrderItemAddon {
+  id: string
+  order_item_id: string
+  menu_addon_id: string
+  quantity: number
+  menu_addon?: MenuAddon
+}
+
 export interface OrderItem {
   id: string
   order_id: string
@@ -119,6 +127,7 @@ export interface OrderItem {
   created_at: string
   updated_at: string
   menu_item?: MenuItem
+  addons?: OrderItemAddon[]
 }
 
 export interface CartItem {
