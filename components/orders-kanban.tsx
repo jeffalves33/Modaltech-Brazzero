@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { formatCurrency, formatDateTime, formatPhone } from "@/lib/format"
 import { ChevronRight, Phone, MapPin, Printer, User, Trash2, PencilLine } from "lucide-react"
-import { OrderPrintDialog } from "@/components/order-print-dialog"
+import { printOrderReceipt } from "@/components/order-print-dialog"
 
 const statusConfig: Record<OrderStatus, { label: string; color: string }> = {
   em_producao: { label: "Em Produção", color: "bg-blue-500" },
@@ -20,7 +20,6 @@ const statusConfig: Record<OrderStatus, { label: string; color: string }> = {
 export function OrdersKanban() {
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [printOrder, setPrintOrder] = useState<Order | null>(null)
   const [activeCashSessionId, setActiveCashSessionId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -235,7 +234,7 @@ export function OrdersKanban() {
               variant="ghost"
               size="sm"
               className="h-9 w-9 bg-transparent"
-              onClick={() => setPrintOrder(order)}
+              onClick={() => printOrderReceipt(order)}
             >
               <Printer className="h-4 w-4" />
             </Button>
@@ -285,10 +284,6 @@ export function OrdersKanban() {
           )
         })}
       </div>
-
-      {printOrder && (
-        <OrderPrintDialog order={printOrder} open={!!printOrder} onOpenChange={() => setPrintOrder(null)} />
-      )}
     </>
   )
 }
