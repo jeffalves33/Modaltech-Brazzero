@@ -30,8 +30,32 @@ export default function LoginPage() {
         email,
         password,
       })
+
       if (error) throw error
-      router.push("/")
+      
+
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser()
+
+      if (!authUser) throw new Error("Não foi possível obter o usuário autenticado.")
+      
+
+      const { data: profile, error: profileError } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", authUser.id)
+        .single()
+
+      if (profileError || !profile) {
+        // fallback: se não achar perfil, manda pra home padrão
+        router.push("/")
+        router.refresh()
+        return
+      }
+
+      const target = profile.role === "admin" ? "/admin" : "/"
+      router.push(target)
       router.refresh()
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Erro ao fazer login")

@@ -1,3 +1,4 @@
+// app/page.tsx
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Header } from "@/components/header"
@@ -16,9 +17,8 @@ export default async function DashboardPage() {
 
   const { data: user } = await supabase.from("users").select("*").eq("id", authUser.id).single()
 
-  if (!user) {
-    redirect("/auth/login")
-  }
+  if (!user) redirect("/auth/login")
+  if (user.role === "admin") redirect("/admin")
 
   return (
     <div className="min-h-screen bg-background">
