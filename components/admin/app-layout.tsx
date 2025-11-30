@@ -1,6 +1,8 @@
 // components/admin/app-layout.tsx
 "use client"
 
+import { createClient } from "@/lib/supabase/client"
+import { useRouter } from "next/navigation"
 import { useState, type ReactNode } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -24,6 +26,7 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
+  const router = useRouter()
   const pathname = usePathname()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const base = "/admin"
@@ -50,6 +53,14 @@ export function AppLayout({ children }: AppLayoutProps) {
       items: [{ name: "Colaboradores", href: `${base}/colaboradores`, icon: Users }],
     },
   ]
+
+  const handleLogout = async () => {
+    const supabase = createClient()
+
+    await supabase.auth.signOut()
+    router.push("/auth/login")
+    router.refresh()
+  }
 
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
@@ -122,7 +133,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           </nav>
 
           <div className="p-4 border-t border-gray-700">
-            <button className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-gray-300 hover:bg-[#2a2a2a] w-full">
+            <button className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-gray-300 hover:bg-[#2a2a2a] w-full" onClick={handleLogout}>
               <LogOut className="w-4 h-4" />
               Sair
             </button>
