@@ -26,11 +26,6 @@ export function Navigation() {
       icon: Users,
     },
     {
-      href: "/cardapio",
-      label: "Cardápio",
-      icon: UtensilsCrossed,
-    },
-    {
       href: "/caixa",
       label: "Caixa",
       icon: Wallet,
