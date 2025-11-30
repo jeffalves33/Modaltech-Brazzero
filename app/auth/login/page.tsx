@@ -1,13 +1,13 @@
+// app/auth/login/page.tsx
 "use client"
 
 import type React from "react"
 
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -32,30 +32,8 @@ export default function LoginPage() {
       })
 
       if (error) throw error
-      
 
-      const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser()
-
-      if (!authUser) throw new Error("Não foi possível obter o usuário autenticado.")
-      
-
-      const { data: profile, error: profileError } = await supabase
-        .from("users")
-        .select("role")
-        .eq("id", authUser.id)
-        .single()
-
-      if (profileError || !profile) {
-        // fallback: se não achar perfil, manda pra home padrão
-        router.push("/")
-        router.refresh()
-        return
-      }
-
-      const target = profile.role === "admin" ? "/admin" : "/"
-      router.push(target)
+      router.push("/")
       router.refresh()
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Erro ao fazer login")
@@ -68,9 +46,7 @@ export default function LoginPage() {
     <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10 bg-neutral-800">
       <div className="w-full max-w-sm">
         <div className="flex flex-col gap-6">
-          <div className="flex flex-col items-center gap-2 text-center">
-
-          </div>
+          <div className="flex flex-col items-center gap-2 text-center" />
           <Card>
             <CardHeader className="flex flex-col items-center gap-2 text-center">
               <div className="flex items-center gap-2">
@@ -113,12 +89,6 @@ export default function LoginPage() {
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Entrando..." : "Entrar"}
                   </Button>
-                </div>
-                <div className="mt-4 text-center text-sm">
-                  Não tem uma conta?{" "}
-                  <Link href="/auth/sign-up" className="underline underline-offset-4">
-                    Cadastre-se
-                  </Link>
                 </div>
               </form>
             </CardContent>

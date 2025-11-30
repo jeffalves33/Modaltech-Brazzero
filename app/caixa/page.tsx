@@ -1,3 +1,4 @@
+// app/caixa/page.tsx
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Header } from "@/components/header"
@@ -10,6 +11,7 @@ export default async function CashPage() {
     data: { user: authUser },
     error: authError,
   } = await supabase.auth.getUser()
+
   if (authError || !authUser) {
     redirect("/auth/login")
   }

@@ -1,19 +1,23 @@
+// lib/supabase/middleware.ts
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
 export async function updateSession(request: NextRequest) {
   const publicPaths = ["/auth", "/_next", "/_vercel", "/api", "/favicon.ico", "/placeholder.svg"]
 
-  const isPublicPath = publicPaths.some((path) => request.nextUrl.pathname.startsWith(path))
+  const pathname = request.nextUrl.pathname
+
+  const isPublicPath = publicPaths.some((path) => pathname.startsWith(path))
 
   if (isPublicPath) {
     return NextResponse.next()
   }
 
-  console.log("[v0] Middleware executing for path:", request.nextUrl.pathname)
+  console.log("[modalteck] Middleware executing for path:", pathname)
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith("/auth")
-  console.log("[v0] Is auth route:", isAuthRoute)
+  const isAuthRoute = pathname.startsWith("/auth")
+  const isCashRoute = pathname === "/caixa"
+  const isAdminRoute = pathname.startsWith("/admin")
 
   let supabaseResponse = NextResponse.next({
     request,
@@ -45,16 +49,59 @@ export async function updateSession(request: NextRequest) {
   if (!user) {
     const url = request.nextUrl.clone()
     url.pathname = "/auth/login"
+    console.log("[modaltech] No user, redirecting to /auth/login")
     return NextResponse.redirect(url)
   }
 
-  const isCashRoute = request.nextUrl.pathname === "/caixa"
+  const { data: profile, error: profileError } = await supabase
+    .from("users")
+    .select("id, email, role")
+    .eq("id", user.id)
+    .single()
 
-  if (!isAuthRoute && !isCashRoute) {
-    const { data: activeSessions } = await supabase.from("cash_sessions").select("id").is("closed_at", null).limit(1)
+  if (profileError || !profile) {
+    console.log("[modaltech] No profile found for user, redirecting to /auth/login", profileError)
+    const url = request.nextUrl.clone()
+    url.pathname = "/auth/login"
+    return NextResponse.redirect(url)
+  }
+
+  const role = String(profile.role || "").toLowerCase()
+  const isAdmin = role === "admin"
+
+  console.log("[modaltech] Authenticated user:", {
+    id: user.id,
+    email: user.email,
+    role,
+    pathname,
+  })
+
+  // ⚠️ Regra 1: se for rota /admin e NÃO for admin → manda pra /caixa
+  if (isAdminRoute && !isAdmin) {
+    console.log("[modaltech] Non-admin attempting to access /admin, redirecting to /caixa")
+    const url = request.nextUrl.clone()
+    url.pathname = "/caixa"
+    return NextResponse.redirect(url)
+  }
+
+  // ⚠️ Regra 2: regra de caixa aberta só vale para OPERADOR
+  // - Não é rota de auth
+  // - Não é /caixa
+  // - Não é rota /admin
+  // - E só se NÃO for admin
+  if (!isAuthRoute && !isCashRoute && !isAdminRoute && !isAdmin) {
+    const { data: activeSessions, error: cashError } = await supabase
+      .from("cash_sessions")
+      .select("id")
+      .is("closed_at", null)
+      .limit(1)
+
+    if (cashError) {
+      console.log("[modaltech] Error fetching cash_sessions:", cashError)
+    }
 
     if (!activeSessions || activeSessions.length === 0) {
-      console.log("[v0] No active cash session, redirecting to cash page")
+      console.log("[modaltech] No active cash session for operator, redirecting to /caixa",)
       const url = request.nextUrl.clone()
       url.pathname = "/caixa"
       return NextResponse.redirect(url)

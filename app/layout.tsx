@@ -8,9 +8,9 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Brazzero",
+  title: "Modaltech - Brazzero",
   icons: {
-    icon: "/logo.svg",
+    icon: "/icon_modaltech_simbolo.png",
   },
   description: "Modaltech para Brazzero",
   generator: "v0.app",

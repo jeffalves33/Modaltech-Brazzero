@@ -29,11 +29,9 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
     redirect("/auth/login")
   }
 
-  // 🔑 Só ADMIN pode usar /admin
   if (user.role !== "admin") {
-    redirect("/") // colaborador vai para a home atual
+    redirect("/caixa")
   }
 
-  // AppLayout é o layout do admin (sidebar, etc)
   return <AppLayout>{children}</AppLayout>
 }

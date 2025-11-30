@@ -62,7 +62,13 @@ export function AppLayout({ children }: AppLayoutProps) {
           >
             {isSidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
-          <h2 className="text-xl md:text-2xl font-bold">BRAZZERO</h2>
+          <div className="mx-auto flex w-36 items-center justify-center rounded-xl">
+            <img
+              src="/logo.svg"
+              alt="Logo"
+              className="object-cover"
+            />
+          </div>
         </div>
 
         <div className="flex items-center gap-2 md:gap-3">

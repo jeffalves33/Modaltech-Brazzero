@@ -1,31 +1,37 @@
 // app/page.tsx
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { Header } from "@/components/header"
-import { OrdersKanban } from "@/components/orders-kanban"
 
-export default async function DashboardPage() {
+export default async function RootRouterPage() {
   const supabase = await createClient()
 
   const {
     data: { user: authUser },
     error: authError,
   } = await supabase.auth.getUser()
+
+  // não logado → login
   if (authError || !authUser) {
     redirect("/auth/login")
   }
 
-  const { data: user } = await supabase.from("users").select("*").eq("id", authUser.id).single()
+  // pega o perfil na public.users
+  const { data: profile, error: profileError } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", authUser.id)
+    .single()
 
-  if (!user) redirect("/auth/login")
-  if (user.role === "admin") redirect("/admin")
+  if (profileError || !profile) {
+    redirect("/auth/login")
+  }
 
-  return (
-    <div className="min-h-screen bg-background">
-      <Header user={user} />
-      <main className="container mx-auto">
-        <OrdersKanban />
-      </main>
-    </div>
-  )
+  const role = String(profile.role || "").toLowerCase()
+
+  if (role === "admin") {
+    redirect("/admin")
+  }
+
+  // qualquer outro papel vai para o fluxo do colaborador
+  redirect("/caixa")
 }
